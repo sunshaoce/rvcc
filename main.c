@@ -167,6 +167,7 @@ typedef enum {
   ND_SUB, // -
   ND_MUL, // *
   ND_DIV, // /
+  ND_NEG, // 负号-
   ND_NUM, // 整形
 } NodeKind;
 
@@ -186,6 +187,13 @@ static Node *newNode(NodeKind Kind) {
   return Nd;
 }
 
+// 新建一个单叉树
+static Node *newUnary(NodeKind Kind, Node *Expr) {
+  Node *Nd = newNode(Kind);
+  Nd->LHS = Expr;
+  return Nd;
+}
+
 // 新建一个二叉树节点
 static Node *newBinary(NodeKind Kind, Node *LHS, Node *RHS) {
   Node *Nd = newNode(Kind);
@@ -202,10 +210,12 @@ static Node *newNum(int Val) {
 }
 
 // expr = mul ("+" mul | "-" mul)*
-// mul = primary ("*" primary | "/" primary)*
+// mul = unary ("*" unary | "/" unary)*
+// unary = ("+" | "-") unary | primary
 // primary = "(" expr ")" | num
 static Node *expr(Token **Rest, Token *Tok);
 static Node *mul(Token **Rest, Token *Tok);
+static Node *unary(Token **Rest, Token *Tok);
 static Node *primary(Token **Rest, Token *Tok);
 
 // 解析加减
@@ -234,28 +244,43 @@ static Node *expr(Token **Rest, Token *Tok) {
 }
 
 // 解析乘除
-// mul = primary ("*" primary | "/" primary)*
+// mul = unary ("*" unary | "/" unary)*
 static Node *mul(Token **Rest, Token *Tok) {
-  // primary
-  Node *Nd = primary(&Tok, Tok);
+  // unary
+  Node *Nd = unary(&Tok, Tok);
 
-  // ("*" primary | "/" primary)*
+  // ("*" unary | "/" unary)*
   while (true) {
-    // "*" primary
+    // "*" unary
     if (equal(Tok, "*")) {
-      Nd = newBinary(ND_MUL, Nd, primary(&Tok, Tok->Next));
+      Nd = newBinary(ND_MUL, Nd, unary(&Tok, Tok->Next));
       continue;
     }
 
-    // "/" primary
+    // "/" unary
     if (equal(Tok, "/")) {
-      Nd = newBinary(ND_DIV, Nd, primary(&Tok, Tok->Next));
+      Nd = newBinary(ND_DIV, Nd, unary(&Tok, Tok->Next));
       continue;
     }
 
     *Rest = Tok;
     return Nd;
   }
+}
+
+// 解析一元运算
+// unary = ("+" | "-") unary | primary
+static Node *unary(Token **Rest, Token *Tok) {
+  // "+" unary
+  if (equal(Tok, "+"))
+    return unary(Rest, Tok->Next);
+
+  // "-" unary
+  if (equal(Tok, "-"))
+    return newUnary(ND_NEG, unary(Rest, Tok->Next));
+
+  // primary
+  return primary(Rest, Tok);
 }
 
 // 解析括号、数字
@@ -305,10 +330,20 @@ static void pop(char *Reg) {
 
 // 生成表达式
 static void genExpr(Node *Nd) {
+  // 生成各个根节点
+  switch (Nd->Kind) {
   // 加载数字到a0
-  if (Nd->Kind == ND_NUM) {
+  case ND_NUM:
     printf("  li a0, %d\n", Nd->Val);
     return;
+  // 对寄存器取反
+  case ND_NEG:
+    genExpr(Nd->LHS);
+    // neg a0, a0是 sub a0, x0的别名, a0，即a0=0-a0
+    printf("  neg a0, a0\n");
+    return;
+  default:
+    break;
   }
 
   // 递归到最右节点
