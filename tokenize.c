@@ -112,6 +112,14 @@ static int readPunct(char *Ptr) {
   return ispunct(*Ptr) ? 1 : 0;
 }
 
+// 将名为“return”的终结符转为KEYWORD
+static void convertKeywords(Token *Tok) {
+  for (Token *T = Tok; T->Kind != TK_EOF; T = T->Next) {
+    if (equal(T, "return"))
+      T->Kind = TK_KEYWORD;
+  }
+}
+
 // 终结符解析
 Token *tokenize(char *P) {
   CurrentInput = P;
@@ -139,7 +147,7 @@ Token *tokenize(char *P) {
       continue;
     }
 
-    // 解析标记符
+    // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
     if (isIdent1(*P)) {
       char *Start = P;
@@ -167,6 +175,8 @@ Token *tokenize(char *P) {
 
   // 解析结束，增加一个EOF，表示终止符。
   Cur->Next = newToken(TK_EOF, P, P);
+  // 将所有关键字的终结符，都标记为KEYWORD
+  convertKeywords(Head.Next);
   // Head无内容，所以直接返回Next
   return Head.Next;
 }
