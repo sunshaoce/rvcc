@@ -7,6 +7,7 @@ Obj *Locals;
 // compoundStmt = stmt* "}"
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 // exprStmt = expr? ";"
@@ -89,6 +90,7 @@ static Obj *newLVar(char *Name) {
 // 解析语句
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 static Node *stmt(Token **Rest, Token *Tok) {
@@ -113,6 +115,32 @@ static Node *stmt(Token **Rest, Token *Tok) {
     if (equal(Tok, "else"))
       Nd->Els = stmt(&Tok, Tok->Next);
     *Rest = Tok;
+    return Nd;
+  }
+
+  // "for" "(" exprStmt expr? ";" expr? ")" stmt
+  if (equal(Tok, "for")) {
+    Node *Nd = newNode(ND_FOR);
+    // "("
+    Tok = skip(Tok->Next, "(");
+
+    // exprStmt
+    Nd->Init = exprStmt(&Tok, Tok);
+
+    // expr?
+    if (!equal(Tok, ";"))
+      Nd->Cond = expr(&Tok, Tok);
+    // ";"
+    Tok = skip(Tok, ";");
+
+    // expr?
+    if (!equal(Tok, ")"))
+      Nd->Inc = expr(&Tok, Tok);
+    // ")"
+    Tok = skip(Tok, ")");
+
+    // stmt
+    Nd->Then = stmt(Rest, Tok);
     return Nd;
   }
 

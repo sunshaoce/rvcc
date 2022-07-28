@@ -158,7 +158,33 @@ static void genStmt(Node *Nd) {
     printf(".L.end.%d:\n", C);
     return;
   }
-
+  // 生成for循环语句
+  case ND_FOR: {
+    // 代码段计数
+    int C = count();
+    // 生成初始化语句
+    genStmt(Nd->Init);
+    // 输出循环头部标签
+    printf(".L.begin.%d:\n", C);
+    // 处理循环条件语句
+    if (Nd->Cond) {
+      // 生成条件循环语句
+      genExpr(Nd->Cond);
+      // 判断结果是否为0，为0则跳转到结束部分
+      printf("  beqz a0, .L.end.%d\n", C);
+    }
+    // 生成循环体语句
+    genStmt(Nd->Then);
+    // 处理循环递增语句
+    if (Nd->Inc)
+      // 生成循环递增语句
+      genExpr(Nd->Inc);
+    // 跳转到循环头部
+    printf("  j .L.begin.%d\n", C);
+    // 输出循环尾部标签
+    printf(".L.end.%d:\n", C);
+    return;
+  }
   // 生成代码块，遍历代码块的语句链表
   case ND_BLOCK:
     for (Node *N = Nd->Body; N; N = N->Next)
