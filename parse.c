@@ -5,7 +5,10 @@ Obj *Locals;
 
 // program = "{" compoundStmt
 // compoundStmt = stmt* "}"
-// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
+// stmt = "return" expr ";"
+//        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "{" compoundStmt
+//        | exprStmt
 // exprStmt = expr? ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -84,12 +87,32 @@ static Obj *newLVar(char *Name) {
 }
 
 // 解析语句
-// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
+// stmt = "return" expr ";"
+//        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "{" compoundStmt
+//        | exprStmt
 static Node *stmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (equal(Tok, "return")) {
     Node *Nd = newUnary(ND_RETURN, expr(&Tok, Tok->Next));
     *Rest = skip(Tok, ";");
+    return Nd;
+  }
+
+  // 解析if语句
+  // "if" "(" expr ")" stmt ("else" stmt)?
+  if (equal(Tok, "if")) {
+    Node *Nd = newNode(ND_IF);
+    // "(" expr ")"，条件内语句
+    Tok = skip(Tok->Next, "(");
+    Nd->Cond = expr(&Tok, Tok);
+    Tok = skip(Tok, ")");
+    // stmt，符合条件后的语句
+    Nd->Then = stmt(&Tok, Tok);
+    // ("else" stmt)?，不符合条件后的语句
+    if (equal(Tok, "else"))
+      Nd->Els = stmt(&Tok, Tok->Next);
+    *Rest = Tok;
     return Nd;
   }
 

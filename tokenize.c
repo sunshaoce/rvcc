@@ -112,10 +112,24 @@ static int readPunct(char *Ptr) {
   return ispunct(*Ptr) ? 1 : 0;
 }
 
+// 判断是否为关键字
+static bool isKeyword(Token *Tok) {
+  // 关键字列表
+  static char *KW[] = {"return", "if", "else"};
+
+  // 遍历关键字列表匹配
+  for (int I = 0; I < sizeof(KW) / sizeof(*KW); ++I) {
+    if (equal(Tok, KW[I]))
+      return true;
+  }
+
+  return false;
+}
+
 // 将名为“return”的终结符转为KEYWORD
 static void convertKeywords(Token *Tok) {
   for (Token *T = Tok; T->Kind != TK_EOF; T = T->Next) {
-    if (equal(T, "return"))
+    if (isKeyword(T))
       T->Kind = TK_KEYWORD;
   }
 }

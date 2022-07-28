@@ -1,7 +1,14 @@
 #include "rvcc.h"
+#include <stdio.h>
 
 // 记录栈深度
 static int Depth;
+
+// 代码段计数
+static int count(void) {
+  static int I = 1;
+  return I++;
+}
 
 // 压栈，将结果临时压入栈中备用
 // sp为栈指针，栈反向向下增长，64位下，8个字节为一个单位，所以sp-8
@@ -131,6 +138,28 @@ static void genExpr(Node *Nd) {
 // 生成语句
 static void genStmt(Node *Nd) {
   switch (Nd->Kind) {
+  // 生成if语句
+  case ND_IF: {
+    // 代码段计数
+    int C = count();
+    // 生成条件内语句
+    genExpr(Nd->Cond);
+    // 判断结果是否为0，为0则跳转到else标签
+    printf("  beqz a0, .L.else.%d\n", C);
+    // 生成符合条件后的语句
+    genStmt(Nd->Then);
+    // 执行完后跳转到if语句后面的语句
+    printf("  j .L.end.%d\n", C);
+    // else代码块，else可能为空，故输出标签
+    printf(".L.else.%d:\n", C);
+    // 生成不符合条件后的语句
+    if (Nd->Els)
+      genStmt(Nd->Els);
+    // 结束if语句，继续执行后面的语句
+    printf(".L.end.%d:\n", C);
+    return;
+  }
+
   // 生成代码块
   case ND_BLOCK:
     for (Node *N = Nd->Body; N; N = N->Next)
