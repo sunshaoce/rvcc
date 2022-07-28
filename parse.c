@@ -3,8 +3,9 @@
 // 在解析时，全部的变量实例都被累加到这个列表里。
 Obj *Locals;
 
-// program = stmt*
-// stmt = "return" expr ";" | exprStmt
+// program = "{" compoundStmt
+// compoundStmt = stmt* "}"
+// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
 // exprStmt = expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -14,6 +15,7 @@ Obj *Locals;
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-") unary | primary
 // primary = "(" expr ")" | ident | num
+static Node *compoundStmt(Token **rest, Token *tok);
 static Node *expr(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *assign(Token **Rest, Token *Tok);
@@ -82,7 +84,7 @@ static Obj *newLVar(char *Name) {
 }
 
 // 解析语句
-// stmt = "return" expr ";" | exprStmt
+// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
 static Node *stmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (equal(Tok, "return")) {
@@ -91,8 +93,30 @@ static Node *stmt(Token **Rest, Token *Tok) {
     return Nd;
   }
 
+  // "{" compoundStmt
+  if (equal(Tok, "{"))
+    return compoundStmt(Rest, Tok->Next);
+
   // exprStmt
   return exprStmt(Rest, Tok);
+}
+
+// 解析复合语句
+// compoundStmt = stmt* "}"
+static Node *compoundStmt(Token **Rest, Token *Tok) {
+  // 这里使用了和词法分析类似的单向链表结构
+  Node Head = {};
+  Node *Cur = &Head;
+  // stmt* "}"
+  while (!equal(Tok, "}")) {
+    Cur->Next = stmt(&Tok, Tok);
+    Cur = Cur->Next;
+  }
+
+  Node *Nd = newNode(ND_BLOCK);
+  Nd->Body = Head.Next;
+  *Rest = Tok->Next;
+  return Nd;
 }
 
 // 解析表达式语句
@@ -284,21 +308,14 @@ static Node *primary(Token **Rest, Token *Tok) {
 }
 
 // 语法解析入口函数
-// program = stmt*
+// program = "{" compoundStmt
 Function *parse(Token *Tok) {
-  // 这里使用了和词法分析类似的单向链表结构
-  Node Head = {};
-  Node *Cur = &Head;
-
-  // stmt*
-  while (Tok->Kind != TK_EOF) {
-    Cur->Next = stmt(&Tok, Tok);
-    Cur = Cur->Next;
-  }
+  // "{"
+  Tok = skip(Tok, "{");
 
   // 函数体存储语句的AST，Locals存储变量
   Function *Prog = calloc(1, sizeof(Function));
-  Prog->Body = Head.Next;
+  Prog->Body = compoundStmt(&Tok, Tok);
   Prog->Locals = Locals;
   return Prog;
 }
