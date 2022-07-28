@@ -48,22 +48,24 @@ Token *tokenize(char *Input);
 
 // AST的节点类型
 typedef enum {
-  ND_ADD, // +
-  ND_SUB, // -
-  ND_MUL, // *
-  ND_DIV, // /
-  ND_NEG, // 负号-
-  ND_EQ,  // ==
-  ND_NE,  // !=
-  ND_LT,  // <
-  ND_LE,  // <=
-  ND_NUM, // 整形
+  ND_ADD,       // +
+  ND_SUB,       // -
+  ND_MUL,       // *
+  ND_DIV,       // /
+  ND_NEG,       // 负号-
+  ND_EQ,        // ==
+  ND_NE,        // !=
+  ND_LT,        // <
+  ND_LE,        // <=
+  ND_EXPR_STMT, // 表达式语句
+  ND_NUM,       // 整形
 } NodeKind;
 
 // AST中二叉树节点
 typedef struct Node Node;
 struct Node {
   NodeKind Kind; // 节点类型
+  Node *Next;    // 下一节点，指代下一语句
   Node *LHS;     // 左部，left-hand side
   Node *RHS;     // 右部，right-hand side
   int Val;       // 存储ND_NUM类型的值
