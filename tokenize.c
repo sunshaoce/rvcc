@@ -128,6 +128,14 @@ Token *tokenize(char *P) {
       continue;
     }
 
+    // 解析标记符
+    if ('a' <= *P && *P <= 'z') {
+      Cur->Next = newToken(TK_IDENT, P, P + 1);
+      Cur = Cur->Next;
+      ++P;
+      continue;
+    }
+
     // 解析操作符
     int PunctLen = readPunct(P);
     if (PunctLen) {
