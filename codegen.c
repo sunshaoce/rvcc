@@ -164,7 +164,8 @@ static void genStmt(Node *Nd) {
     // 代码段计数
     int C = count();
     // 生成初始化语句
-    genStmt(Nd->Init);
+    if (Nd->Init)
+      genStmt(Nd->Init);
     // 输出循环头部标签
     printf(".L.begin.%d:\n", C);
     // 处理循环条件语句
