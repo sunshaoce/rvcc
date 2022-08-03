@@ -18,7 +18,7 @@ Obj *Locals;
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "*" | "&") unary | primary
 // primary = "(" expr ")" | ident | num
 static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
@@ -347,7 +347,7 @@ static Node *mul(Token **Rest, Token *Tok) {
 }
 
 // 解析一元运算
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "*" | "&") unary | primary
 static Node *unary(Token **Rest, Token *Tok) {
   // "+" unary
   if (equal(Tok, "+"))
@@ -356,6 +356,14 @@ static Node *unary(Token **Rest, Token *Tok) {
   // "-" unary
   if (equal(Tok, "-"))
     return newUnary(ND_NEG, unary(Rest, Tok->Next), Tok);
+
+  // "&" unary
+  if (equal(Tok, "&"))
+    return newUnary(ND_ADDR, unary(Rest, Tok->Next), Tok);
+
+  // "*" unary
+  if (equal(Tok, "*"))
+    return newUnary(ND_DEREF, unary(Rest, Tok->Next), Tok);
 
   // primary
   return primary(Rest, Tok);
