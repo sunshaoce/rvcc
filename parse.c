@@ -23,8 +23,9 @@ Obj *Locals;
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-" | "*" | "&") unary | primary
-// primary = "(" expr ")" | ident args? | num
-// args = "(" ")"
+// primary = "(" expr ")" | ident func-args? | num
+
+// funcall = ident "(" (assign ("," assign)*)? ")"
 static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *declaration(Token **Rest, Token *Tok);
 static Node *stmt(Token **Rest, Token *Tok);
@@ -517,9 +518,34 @@ static Node *unary(Token **Rest, Token *Tok) {
   return primary(Rest, Tok);
 }
 
+// 解析函数调用
+// funcall = ident "(" (assign ("," assign)*)? ")"
+static Node *funCall(Token **Rest, Token *Tok) {
+  Token *Start = Tok;
+  Tok = Tok->Next->Next;
+
+  Node Head = {};
+  Node *Cur = &Head;
+
+  while (!equal(Tok, ")")) {
+    if (Cur != &Head)
+      Tok = skip(Tok, ",");
+    // assign
+    Cur->Next = assign(&Tok, Tok);
+    Cur = Cur->Next;
+  }
+
+  *Rest = skip(Tok, ")");
+
+  Node *Nd = newNode(ND_FUNCALL, Start);
+  // ident
+  Nd->FuncName = strndup(Start->Loc, Start->Len);
+  Nd->Args = Head.Next;
+  return Nd;
+}
+
 // 解析括号、数字、变量
-// primary = "(" expr ")" | ident args?｜ num
-// args = "(" ")"
+// primary = "(" expr ")" | ident func-args? | num
 static Node *primary(Token **Rest, Token *Tok) {
   // "(" expr ")"
   if (equal(Tok, "(")) {
@@ -531,14 +557,8 @@ static Node *primary(Token **Rest, Token *Tok) {
   // ident args?
   if (Tok->Kind == TK_IDENT) {
     // 函数调用
-    // args = "(" ")"
-    if (equal(Tok->Next, "(")) {
-      Node *Nd = newNode(ND_FUNCALL, Tok);
-      // ident
-      Nd->FuncName = strndup(Tok->Loc, Tok->Len);
-      *Rest = skip(Tok->Next->Next, ")");
-      return Nd;
-    }
+    if (equal(Tok->Next, "("))
+      return funCall(Rest, Tok);
 
     // ident
     // 查找变量

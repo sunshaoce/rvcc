@@ -2,6 +2,8 @@
 
 // 记录栈深度
 static int Depth;
+// 用于函数参数的寄存器们
+static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5"};
 
 static void genExpr(Node *Nd);
 
@@ -104,10 +106,25 @@ static void genExpr(Node *Nd) {
     printf("  sd a0, 0(a1)\n");
     return;
     // 函数调用
-  case ND_FUNCALL:
-    printf("\n  # 调用函数%s\n", Nd->FuncName);
+  case ND_FUNCALL: {
+    // 记录参数个数
+    int NArgs = 0;
+    // 计算所有参数的值，正向压栈
+    for (Node *Arg = Nd->Args; Arg; Arg = Arg->Next) {
+      genExpr(Arg);
+      push();
+      NArgs++;
+    }
+
+    // 反向弹栈，a0->参数1，a1->参数2……
+    for (int i = NArgs - 1; i >= 0; i--)
+      pop(ArgReg[i]);
+
+    // 调用函数
+    printf("  # 调用%s函数\n", Nd->FuncName);
     printf("  call %s\n", Nd->FuncName);
     return;
+  }
   default:
     break;
   }
