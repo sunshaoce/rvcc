@@ -156,5 +156,10 @@ assert 136 'int main() { return add6(1,2,add6(3,add6(4,5,6,7,8,9),10,11,12,13),1
 # [25] 支持零参函数定义
 assert 32 'int main() { return ret32(); } int ret32() { return 32; }'
 
+# [26] 支持最多6个参数的函数定义
+assert 7 'int main() { return add2(3,4); } int add2(int x, int y) { return x+y; }'
+assert 1 'int main() { return sub2(4,3); } int sub2(int x, int y) { return x-y; }'
+assert 55 'int main() { return fib(9); } int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); }'
+
 # 如果运行正常未提前退出，程序将显示OK
 echo OK

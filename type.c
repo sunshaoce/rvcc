@@ -6,6 +6,13 @@ Type *TyInt = &(Type){TY_INT};
 // 判断Type是否为int类型
 bool isInteger(Type *Ty) { return Ty->Kind == TY_INT; }
 
+// 复制类型
+Type *copyType(Type *Ty) {
+  Type *Ret = calloc(1, sizeof(Type));
+  *Ret = *Ty;
+  return Ret;
+}
+
 // 指针类型，并且指向基类
 Type *pointerTo(Type *Base) {
   Type *Ty = calloc(1, sizeof(Type));
@@ -39,6 +46,9 @@ void addType(Node *Nd) {
 
   // 访问链表内的所有节点以增加类型
   for (Node *N = Nd->Body; N; N = N->Next)
+    addType(N);
+  // 访问链表内的所有参数节点以增加类型
+  for (Node *N = Nd->Args; N; N = N->Next)
     addType(N);
 
   switch (Nd->Kind) {

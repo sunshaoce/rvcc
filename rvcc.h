@@ -70,9 +70,11 @@ typedef struct Function Function;
 struct Function {
   Function *Next; // 下一函数
   char *Name;     // 函数名
-  Node *Body;     // 函数体
-  Obj *Locals;    // 本地变量
-  int StackSize;  // 栈大小
+  Obj *Params;    // 形参
+
+  Node *Body;    // 函数体
+  Obj *Locals;   // 本地变量
+  int StackSize; // 栈大小
 };
 
 // AST的节点种类
@@ -147,11 +149,13 @@ struct Type {
   // 指针
   Type *Base; // 指向的类型
 
-  // 变量名
+  // 类型对应名称，如：变量名、函数名
   Token *Name;
 
   // 函数类型
   Type *ReturnTy; // 函数返回的类型
+  Type *Params;   // 形参
+  Type *Next;     // 下一类型
 };
 
 // 声明一个全局变量，定义在type.c中。
@@ -159,6 +163,8 @@ extern Type *TyInt;
 
 // 判断是否为整型
 bool isInteger(Type *TY);
+// 复制类型
+Type *copyType(Type *Ty);
 // 构建一个指针类型，并指向基类
 Type *pointerTo(Type *Base);
 // 为节点内的所有节点添加类型
