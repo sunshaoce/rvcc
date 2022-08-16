@@ -134,10 +134,7 @@ static Obj *newGVar(char *Name, Type *Ty) {
 // 新增唯一名称
 static char *newUniqueName(void) {
   static int Id = 0;
-  char *Buf = calloc(1, 20);
-  // 将格式化处理过后的字符串存入Buf
-  sprintf(Buf, ".L..%d", Id++);
-  return Buf;
+  return format(".L..%d", Id++);
 }
 
 // 新增匿名全局变量

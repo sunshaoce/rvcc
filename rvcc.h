@@ -18,6 +18,12 @@ typedef struct Type Type;
 typedef struct Node Node;
 
 //
+// 字符串
+//
+
+char *format(char *Fmt, ...);
+
+//
 // 终结符分析，词法分析
 //
 
