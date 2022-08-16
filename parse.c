@@ -30,7 +30,12 @@ Obj *Globals; // 全局变量
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-" | "*" | "&") unary | postfix
 // postfix = primary ("[" expr "]")*
-// primary = "(" expr ")" | "sizeof" unary | ident funcArgs? | str | num
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
+//         | "sizeof" unary
+//         | ident funcArgs?
+//         | str
+//         | num
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
 static Type *declspec(Token **Rest, Token *Tok);
@@ -673,8 +678,22 @@ static Node *funCall(Token **Rest, Token *Tok) {
 }
 
 // 解析括号、数字、变量
-// primary = "(" expr ")" | "sizeof" unary | ident funcArgs? | str | num
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
+//         | "sizeof" unary
+//         | ident funcArgs?
+//         | str
+//         | num
 static Node *primary(Token **Rest, Token *Tok) {
+  // "(" "{" stmt+ "}" ")"
+  if (equal(Tok, "(") && equal(Tok->Next, "{")) {
+    // This is a GNU statement expresssion.
+    Node *Nd = newNode(ND_STMT_EXPR, Tok);
+    Nd->Body = compoundStmt(&Tok, Tok->Next->Next)->Body;
+    *Rest = skip(Tok, ")");
+    return Nd;
+  }
+
   // "(" expr ")"
   if (equal(Tok, "(")) {
     Node *Nd = expr(&Tok, Tok->Next);

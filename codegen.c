@@ -8,6 +8,7 @@ static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5"};
 static Obj *CurrentFn;
 
 static void genExpr(Node *Nd);
+static void genStmt(Node *Nd);
 
 // 代码段计数
 static int count(void) {
@@ -129,7 +130,12 @@ static void genExpr(Node *Nd) {
     genExpr(Nd->RHS);
     store(Nd->Ty);
     return;
-    // 函数调用
+  // 语句表达式
+  case ND_STMT_EXPR:
+    for (Node *N = Nd->Body; N; N = N->Next)
+      genStmt(N);
+    return;
+  // 函数调用
   case ND_FUNCALL: {
     // 记录参数个数
     int NArgs = 0;
