@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -59,7 +60,7 @@ bool equal(Token *Tok, char *Str);
 Token *skip(Token *Tok, char *Str);
 bool consume(Token **Rest, Token *Tok, char *Str);
 // 词法分析
-Token *tokenize(char *Input);
+Token *tokenizeFile(char *Path);
 
 //
 // 生成AST（抽象语法树），语法解析

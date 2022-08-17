@@ -21,7 +21,7 @@ assert() {
 
   # 运行程序，传入期待值，将生成结果写入tmp.s汇编文件。
   # 如果运行不成功，则会执行exit退出。成功时会短路exit操作
-  ./rvcc "$input" > tmp.s || exit
+  echo "$input" | ./rvcc - > tmp.s || exit
   # 编译rvcc产生的汇编文件
   gcc -static -o tmp tmp.s tmp2.o
   # $RISCV/bin/riscv64-unknown-linux-gnu-gcc -static -o tmp tmp.s tmp2.o
