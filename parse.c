@@ -1,8 +1,26 @@
 #include "rvcc.h"
 
+// 局部和全局变量的域
+typedef struct VarScope VarScope;
+struct VarScope {
+  VarScope *Next; // 下一变量域
+  char *Name;     // 变量域名称
+  Obj *Var;       // 对应的变量
+};
+
+// 表示一个块域
+typedef struct Scope Scope;
+struct Scope {
+  Scope *Next;    // 指向上一级的域
+  VarScope *Vars; // 指向当前域内的变量
+};
+
 // 在解析时，全部的变量实例都被累加到这个列表里。
 Obj *Locals;  // 局部变量
 Obj *Globals; // 全局变量
+
+// 所有的域的链表
+static Scope *Scp = &(Scope){};
 
 // program = (functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
@@ -54,22 +72,26 @@ static Node *unary(Token **Rest, Token *Tok);
 static Node *postfix(Token **Rest, Token *Tok);
 static Node *primary(Token **Rest, Token *Tok);
 
-// 通过名称，查找一个本地变量
+// 进入域
+static void enterScope(void) {
+  Scope *S = calloc(1, sizeof(Scope));
+  // 后来的在链表头部
+  // 类似于栈的结构，栈顶对应最近的域
+  S->Next = Scp;
+  Scp = S;
+}
+
+// 结束当前域
+static void leaveScope(void) { Scp = Scp->Next; }
+
+// 通过名称，查找一个变量
 static Obj *findVar(Token *Tok) {
-  // 查找Locals变量中是否存在同名变量
-  for (Obj *Var = Locals; Var; Var = Var->Next)
-    // 判断变量名是否和终结符名长度一致，然后逐字比较。
-    if (strlen(Var->Name) == Tok->Len &&
-        !strncmp(Tok->Loc, Var->Name, Tok->Len))
-      return Var;
-
-  // 查找Globals变量中是否存在同名变量
-  for (Obj *Var = Globals; Var; Var = Var->Next)
-    // 判断变量名是否和终结符名长度一致，然后逐字比较。
-    if (strlen(Var->Name) == Tok->Len &&
-        !strncmp(Tok->Loc, Var->Name, Tok->Len))
-      return Var;
-
+  // 此处越先匹配的域，越深层
+  for (Scope *S = Scp; S; S = S->Next)
+    // 遍历域内的所有变量
+    for (VarScope *S2 = S->Vars; S2; S2 = S2->Next)
+      if (equal(Tok, S2->Name))
+        return S2->Var;
   return NULL;
 }
 
@@ -110,11 +132,23 @@ static Node *newVarNode(Obj *Var, Token *Tok) {
   return Nd;
 }
 
+// 将变量存入当前的域中
+static VarScope *pushScope(char *Name, Obj *Var) {
+  VarScope *S = calloc(1, sizeof(VarScope));
+  S->Name = Name;
+  S->Var = Var;
+  // 后来的在链表头部
+  S->Next = Scp->Vars;
+  Scp->Vars = S;
+  return S;
+}
+
 // 新建变量
 static Obj *newVar(char *Name, Type *Ty) {
   Obj *Var = calloc(1, sizeof(Obj));
   Var->Name = Name;
   Var->Ty = Ty;
+  pushScope(Name, Var);
   return Var;
 }
 
@@ -378,6 +412,10 @@ static Node *compoundStmt(Token **Rest, Token *Tok) {
   // 这里使用了和词法分析类似的单向链表结构
   Node Head = {};
   Node *Cur = &Head;
+
+  // 进入新的域
+  enterScope();
+
   // (declaration | stmt)* "}"
   while (!equal(Tok, "}")) {
     // declaration
@@ -390,6 +428,9 @@ static Node *compoundStmt(Token **Rest, Token *Tok) {
     // 构造完AST后，为节点添加类型信息
     addType(Cur);
   }
+
+  // 结束当前的域
+  leaveScope();
 
   // Nd的Body存储了{}内解析的语句
   Nd->Body = Head.Next;
@@ -762,6 +803,8 @@ static Token *function(Token *Tok, Type *BaseTy) {
 
   // 清空全局变量Locals
   Locals = NULL;
+  // 进入新的域
+  enterScope();
   // 函数参数
   createParamLVars(Ty->Params);
   Fn->Params = Locals;
@@ -770,6 +813,8 @@ static Token *function(Token *Tok, Type *BaseTy) {
   // 函数体存储语句的AST，Locals存储变量
   Fn->Body = compoundStmt(&Tok, Tok);
   Fn->Locals = Locals;
+  // 结束当前域
+  leaveScope();
   return Tok;
 }
 
