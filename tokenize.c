@@ -27,7 +27,7 @@ void error(char *Fmt, ...) {
 // 输出例如下面的错误，并退出
 // foo.c:10: x = y + 1;
 //               ^ <错误信息>
-static void verrorAt(char *Loc, char *Fmt, va_list VA) {
+static void verrorAt(int LineNo, char *Loc, char *Fmt, va_list VA) {
   // 查找包含loc的行
   char *Line = Loc;
   // Line递减到当前行的最开始的位置
@@ -40,13 +40,6 @@ static void verrorAt(char *Loc, char *Fmt, va_list VA) {
   char *End = Loc;
   while (*End != '\n')
     End++;
-
-  // 获取行号
-  int LineNo = 1;
-  for (char *P = CurrentInput; P < Line; P++)
-    // 遇到换行符则行号+1
-    if (*P == '\n')
-      LineNo++;
 
   // 输出 文件名:错误行
   // Indent记录输出了多少个字符
@@ -67,9 +60,14 @@ static void verrorAt(char *Loc, char *Fmt, va_list VA) {
 
 // 字符解析出错
 void errorAt(char *Loc, char *Fmt, ...) {
+  int LineNo = 1;
+  for (char *P = CurrentInput; P < Loc; P++)
+    if (*P == '\n')
+      LineNo++;
+
   va_list VA;
   va_start(VA, Fmt);
-  verrorAt(Loc, Fmt, VA);
+  verrorAt(LineNo, Loc, Fmt, VA);
   exit(1);
 }
 
@@ -77,7 +75,7 @@ void errorAt(char *Loc, char *Fmt, ...) {
 void errorTok(Token *Tok, char *Fmt, ...) {
   va_list VA;
   va_start(VA, Fmt);
-  verrorAt(Tok->Loc, Fmt, VA);
+  verrorAt(Tok->LineNo, Tok->Loc, Fmt, VA);
   exit(1);
 }
 
@@ -281,6 +279,21 @@ static void convertKeywords(Token *Tok) {
   }
 }
 
+// 为所有Token添加行号
+static void addLineNumbers(Token *Tok) {
+  char *P = CurrentInput;
+  int N = 1;
+
+  do {
+    if (P == Tok->Loc) {
+      Tok->LineNo = N;
+      Tok = Tok->Next;
+    }
+    if (*P == '\n')
+      N++;
+  } while (*P++);
+}
+
 // 终结符解析，文件名，文件内容
 Token *tokenize(char *Filename, char *P) {
   CurrentFilename = Filename;
@@ -363,6 +376,8 @@ Token *tokenize(char *Filename, char *P) {
 
   // 解析结束，增加一个EOF，表示终止符。
   Cur->Next = newToken(TK_EOF, P, P);
+  // 为所有Token添加行号
+  addLineNumbers(Head.Next);
   // 将所有关键字的终结符，都标记为KEYWORD
   convertKeywords(Head.Next);
   // Head无内容，所以直接返回Next
@@ -390,7 +405,7 @@ static char *readFile(char *Path) {
   FILE *Out = open_memstream(&Buf, &BufLen);
 
   // 读取整个文件
-  while(true) {
+  while (true) {
     char Buf2[4096];
     // fread从文件流中读取数据到数组中
     // 数组指针Buf2，数组元素大小1，数组元素个数4096，文件流指针

@@ -48,6 +48,8 @@ struct Token {
   int Len;        // 长度
   Type *Ty;       // TK_STR使用
   char *Str;      // 字符串字面量，包括'\0'
+
+  int LineNo; // 行号
 };
 
 // 去除了static用以在多个文件间访问
