@@ -36,6 +36,11 @@ int sub_long(long a, long b, long c) {
   return a - b - c;
 }
 
+// [58] 支持short类型
+int sub_short(short a, short b, short c) {
+  return a - b - c;
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
