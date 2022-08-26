@@ -65,6 +65,9 @@ bool consume(Token **Rest, Token *Tok, char *Str);
 // 词法分析
 Token *tokenizeFile(char *Path);
 
+// 指rvcc源文件的某个文件的某一行出了问题，打印出文件名和行号
+#define unreachable() error("internal error at %s:%d", __FILE__, __LINE__)
+
 //
 // 生成AST（抽象语法树），语法解析
 //

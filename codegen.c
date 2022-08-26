@@ -100,6 +100,8 @@ static void load(Type *Ty) {
   printLn("  # 读取a0中存放的地址，得到的值存入a0");
   if (Ty->Size == 1)
     printLn("  lb a0, 0(a0)");
+  else if (Ty->Size == 4)
+    printLn("  lw a0, 0(a0)");
   else
     printLn("  ld a0, 0(a0)");
 }
@@ -125,6 +127,8 @@ static void store(Type *Ty) {
   printLn("  # 将a0的值，写入到a1中存放的地址");
   if (Ty->Size == 1)
     printLn("  sb a0, 0(a1)");
+  else if (Ty->Size == 4)
+    printLn("  sw a0, 0(a1)");
   else
     printLn("  sd a0, 0(a1)");
 };
@@ -419,6 +423,23 @@ static void emitData(Obj *Prog) {
   }
 }
 
+// 将整形寄存器的值存入栈中
+static void storeGeneral(int Reg, int Offset, int Size) {
+  printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
+  switch (Size) {
+  case 1:
+    printLn("  sb %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  case 4:
+    printLn("  sw %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  case 8:
+    printLn("  sd %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  }
+  unreachable();
+}
+
 // 代码生成入口函数，包含代码块的基础信息
 void emitText(Obj *Prog) {
   // 为每个函数单独生成代码
@@ -464,13 +485,8 @@ void emitText(Obj *Prog) {
     printLn("  addi sp, sp, -%d", Fn->StackSize);
 
     int I = 0;
-    for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
-      printLn("  # 将%s寄存器的值存入%s的栈地址", ArgReg[I], Var->Name);
-      if (Var->Ty->Size == 1)
-        printLn("  sb %s, %d(fp)", ArgReg[I++], Var->Offset);
-      else
-        printLn("  sd %s, %d(fp)", ArgReg[I++], Var->Offset);
-    }
+    for (Obj *Var = Fn->Params; Var; Var = Var->Next)
+      storeGeneral(I++, Var->Offset, Var->Ty->Size);
 
     // 生成语句链表的代码
     printLn("# =====%s段主体===============", Fn->Name);
