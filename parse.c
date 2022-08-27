@@ -35,7 +35,8 @@ static Scope *Scp = &(Scope){};
 
 // program = (functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
-// declspec = "char" | "short" | "int" | "long" | structDecl | unionDecl
+// declspec = "void" | "char" | "short" | "int" | "long"
+//            | structDecl | unionDecl
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
 // typeSuffix = "(" funcParams | "[" num "]" typeSuffix | ε
 // funcParams = (param ("," param)*)? ")"
@@ -234,9 +235,16 @@ static void pushTagScope(Token *Tok, Type *Ty) {
   Scp->Tags = S;
 }
 
-// declspec = "char" | "short" | "int" | "long" | structDecl | unionDecl
+// declspec = "void" | "char" | "short" | "int" | "long"
+//            | structDecl | unionDecl
 // declarator specifier
 static Type *declspec(Token **Rest, Token *Tok) {
+  // "void"
+  if (equal(Tok, "void")) {
+    *Rest = Tok->Next;
+    return TyVoid;
+  }
+
   // "char"
   if (equal(Tok, "char")) {
     *Rest = Tok->Next;
@@ -368,6 +376,9 @@ static Node *declaration(Token **Rest, Token *Tok) {
     // declarator
     // 声明获取到变量类型，包括变量名
     Type *Ty = declarator(&Tok, Tok, Basety);
+    if (Ty->Kind == TY_VOID)
+      errorTok(Tok, "variable declared void");
+
     Obj *Var = newLVar(getIdent(Ty->Name), Ty);
 
     // 如果不存在"="则为变量声明，不需要生成节点，已经存储在Locals中了
@@ -393,8 +404,15 @@ static Node *declaration(Token **Rest, Token *Tok) {
 
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
-  return equal(Tok, "char") || equal(Tok, "short") || equal(Tok, "int") ||
-         equal(Tok, "long") || equal(Tok, "struct") || equal(Tok, "union");
+  static char *Kw[] = {
+      "void", "char", "short", "int", "long", "struct", "union",
+  };
+
+  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
+    if (equal(Tok, Kw[I]))
+      return true;
+  }
+  return false;
 }
 
 // 解析语句
