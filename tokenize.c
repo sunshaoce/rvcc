@@ -154,10 +154,14 @@ static int fromHex(char C) {
 
 // 读取操作符
 static int readPunct(char *Ptr) {
-  // 判断2字节的操作符
-  if (startsWith(Ptr, "==") || startsWith(Ptr, "!=") || startsWith(Ptr, "<=") ||
-      startsWith(Ptr, ">="))
-    return 2;
+  // 判断多字节的操作符
+  static char *Kw[] = {"==", "!=", "<=", ">=", "->"};
+
+  // 遍历列表匹配Ptr字符串
+  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
+    if (startsWith(Ptr, Kw[I]))
+      return strlen(Kw[I]);
+  }
 
   // 判断1字节的操作符
   return ispunct(*Ptr) ? 1 : 0;
