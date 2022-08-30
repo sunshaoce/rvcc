@@ -40,7 +40,7 @@ static Scope *Scp = &(Scope){};
 //        | "{" compoundStmt
 //        | exprStmt
 // exprStmt = expr? ";"
-// expr = assign
+// expr = assign ("," expr)?
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -455,8 +455,16 @@ static Node *exprStmt(Token **Rest, Token *Tok) {
 }
 
 // 解析表达式
-// expr = assign
-static Node *expr(Token **Rest, Token *Tok) { return assign(Rest, Tok); }
+// expr = assign ("," expr)?
+static Node *expr(Token **Rest, Token *Tok) {
+  Node *Nd = assign(&Tok, Tok);
+
+  if (equal(Tok, ","))
+    return newBinary(ND_COMMA, Nd, expr(Rest, Tok->Next), Tok);
+
+  *Rest = Tok;
+  return Nd;
+}
 
 // 解析赋值
 // assign = equality ("=" assign)?
