@@ -35,8 +35,8 @@ static Scope *Scp = &(Scope){};
 
 // program = (functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
-// declspec = "void" | "char" | "short" | "int" | "long"
-//            | structDecl | unionDecl
+// declspec = ("void" | "char" | "short" | "int" | "long"
+//             | structDecl | unionDecl)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
 // typeSuffix = "(" funcParams | "[" num "]" typeSuffix | ε
 // funcParams = (param ("," param)*)? ")"
@@ -72,6 +72,7 @@ static Scope *Scp = &(Scope){};
 //         | num
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
+static bool isTypename(Token *Tok);
 static Type *declspec(Token **Rest, Token *Tok);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok);
@@ -235,50 +236,79 @@ static void pushTagScope(Token *Tok, Type *Ty) {
   Scp->Tags = S;
 }
 
-// declspec = "void" | "char" | "short" | "int" | "long"
-//            | structDecl | unionDecl
+// declspec = ("void" | "char" | "short" | "int" | "long"
+//             | structDecl | unionDecl)+
 // declarator specifier
 static Type *declspec(Token **Rest, Token *Tok) {
-  // "void"
-  if (equal(Tok, "void")) {
-    *Rest = Tok->Next;
-    return TyVoid;
-  }
 
-  // "char"
-  if (equal(Tok, "char")) {
-    *Rest = Tok->Next;
-    return TyChar;
-  }
+  // 类型的组合，被表示为例如：LONG+LONG=1<<9
+  // 可知long int和int long是等价的。
+  enum {
+    VOID = 1 << 0,
+    CHAR = 1 << 2,
+    SHORT = 1 << 4,
+    INT = 1 << 6,
+    LONG = 1 << 8,
+    OTHER = 1 << 10,
+  };
 
-  // "short"
-  if (equal(Tok, "short")) {
-    *Rest = Tok->Next;
-    return TyShort;
-  }
+  Type *Ty = TyInt;
+  int Counter = 0; // 记录类型相加的数值
 
-  // "int"
-  if (equal(Tok, "int")) {
-    *Rest = Tok->Next;
-    return TyInt;
-  }
+  // 遍历所有类型名的Tok
+  while (isTypename(Tok)) {
+    if (equal(Tok, "struct") || equal(Tok, "union")) {
+      if (equal(Tok, "struct"))
+        Ty = structDecl(&Tok, Tok->Next);
+      else
+        Ty = unionDecl(&Tok, Tok->Next);
+      Counter += OTHER;
+      continue;
+    }
 
-  // "long"
-  if (equal(Tok, "long")) {
-    *Rest = Tok->Next;
-    return TyLong;
-  }
+    // 对于出现的类型名加入Counter
+    // 每一步的Counter都需要有合法值
+    if (equal(Tok, "void"))
+      Counter += VOID;
+    else if (equal(Tok, "char"))
+      Counter += CHAR;
+    else if (equal(Tok, "short"))
+      Counter += SHORT;
+    else if (equal(Tok, "int"))
+      Counter += INT;
+    else if (equal(Tok, "long"))
+      Counter += LONG;
+    else
+      unreachable();
 
-  // structDecl
-  if (equal(Tok, "struct"))
-    return structDecl(Rest, Tok->Next);
+    // 根据Counter值映射到对应的Type
+    switch (Counter) {
+    case VOID:
+      Ty = TyVoid;
+      break;
+    case CHAR:
+      Ty = TyChar;
+      break;
+    case SHORT:
+    case SHORT + INT:
+      Ty = TyShort;
+      break;
+    case INT:
+      Ty = TyInt;
+      break;
+    case LONG:
+    case LONG + INT:
+      Ty = TyLong;
+      break;
+    default:
+      errorTok(Tok, "invalid type");
+    }
 
-  // unionDecl
-  if (equal(Tok, "union"))
-    return unionDecl(Rest, Tok->Next);
+    Tok = Tok->Next;
+  } // while (isTypename(Tok))
 
-  errorTok(Tok, "typename expected");
-  return NULL;
+  *Rest = Tok;
+  return Ty;
 }
 
 // funcParams = (param ("," param)*)? ")"
