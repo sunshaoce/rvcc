@@ -367,6 +367,8 @@ static void assignLVarOffsets(Obj *Prog) {
     for (Obj *Var = Fn->Locals; Var; Var = Var->Next) {
       // 每个变量分配空间
       Offset += Var->Ty->Size;
+      // 对齐变量
+      Offset = alignTo(Offset, Var->Ty->Align);
       // 为每个变量赋一个偏移量，或者说是栈中地址
       Var->Offset = -Offset;
     }
