@@ -39,6 +39,9 @@ Obj *Globals; // 全局变量
 // 所有的域的链表
 static Scope *Scp = &(Scope){};
 
+// 指向当前正在解析的函数
+static Obj *CurrentFn;
+
 // program = (typedef | functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = ("void" | "char" | "short" | "int" | "long"
@@ -554,8 +557,12 @@ static Node *stmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (equal(Tok, "return")) {
     Node *Nd = newNode(ND_RETURN, Tok);
-    Nd->LHS = expr(&Tok, Tok->Next);
+    Node *Exp = expr(&Tok, Tok->Next);
     *Rest = skip(Tok, ";");
+
+    addType(Exp);
+    // 对于返回值进行类型转换
+    Nd->LHS = newCast(Exp, CurrentFn->Ty->ReturnTy);
     return Nd;
   }
 
@@ -1237,6 +1244,7 @@ static Token *function(Token *Tok, Type *BaseTy) {
   if (!Fn->IsDefinition)
     return Tok;
 
+  CurrentFn = Fn;
   // 清空全局变量Locals
   Locals = NULL;
   // 进入新的域
