@@ -175,6 +175,7 @@ typedef enum {
   TY_SHORT,  // short短整型
   TY_INT,    // int整型
   TY_LONG,   // long长整型
+  TY_ENUM,   // enum枚举类型
   TY_PTR,    // 指针
   TY_FUNC,   // 函数
   TY_ARRAY,  // 数组
@@ -232,6 +233,8 @@ Type *pointerTo(Type *Base);
 void addType(Node *Nd);
 // 数组类型
 Type *arrayOf(Type *Base, int Size);
+// 枚举类型
+Type *enumType(void);
 // 函数类型
 Type *funcType(Type *ReturnTy);
 
