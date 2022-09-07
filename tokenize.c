@@ -148,7 +148,8 @@ static int fromHex(char C) {
 // 读取操作符
 static int readPunct(char *Ptr) {
   // 判断多字节的操作符
-  static char *Kw[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/="};
+  static char *Kw[] = {
+      "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "++", "--"};
 
   // 遍历列表匹配Ptr字符串
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
