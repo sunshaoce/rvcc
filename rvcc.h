@@ -108,6 +108,9 @@ typedef enum {
   ND_DIV,       // /
   ND_NEG,       // 负号-
   ND_MOD,       // %，取余
+  ND_BITAND,    // &，按位与
+  ND_BITOR,     // |，按位或
+  ND_BITXOR,    // ^，按位异或
   ND_EQ,        // ==
   ND_NE,        // !=
   ND_LT,        // <

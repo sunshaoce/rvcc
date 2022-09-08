@@ -329,6 +329,18 @@ static void genExpr(Node *Nd) {
     printLn("  # a0%%a1，结果写入a0");
     printLn("  rem%s a0, a0, a1", Suffix);
     return;
+  case ND_BITAND: // & a0=a0&a1
+    printLn("  # a0&a1，结果写入a0");
+    printLn("  and a0, a0, a1");
+    return;
+  case ND_BITOR: // | a0=a0|a1
+    printLn("  # a0|a1，结果写入a0");
+    printLn("  or a0, a0, a1");
+    return;
+  case ND_BITXOR: // ^ a0=a0^a1
+    printLn("  # a0^a1，结果写入a0");
+    printLn("  xor a0, a0, a1");
+    return;
   case ND_EQ:
   case ND_NE:
     // a0=a0^a1，异或指令

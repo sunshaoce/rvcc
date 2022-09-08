@@ -107,6 +107,9 @@ void addType(Node *Nd) {
   case ND_MUL:
   case ND_DIV:
   case ND_MOD:
+  case ND_BITAND:
+  case ND_BITOR:
+  case ND_BITXOR:
     // 对左右部转换
     usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = Nd->LHS->Ty;
