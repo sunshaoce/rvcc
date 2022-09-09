@@ -143,6 +143,10 @@ void addType(Node *Nd) {
   case ND_NOT:
     Nd->Ty = TyInt;
     return;
+  // 将节点类型设为 左部的类型
+  case ND_BITNOT:
+    Nd->Ty = Nd->LHS->Ty;
+    return;
   // 将节点类型设为 变量的类型
   case ND_VAR:
     Nd->Ty = Nd->Var->Ty;

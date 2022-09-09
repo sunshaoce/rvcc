@@ -77,7 +77,9 @@ static Obj *CurrentFn;
 // add = mul ("+" mul | "-" mul)*
 // mul = cast ("*" cast | "/" cast)*
 // cast = "(" typeName ")" cast | unary
-// unary = ("+" | "-" | "*" | "&" | "!") cast | ("++" | "--") unary | postfix
+// unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
+//       | ("++" | "--") unary
+//       | postfix
 // structMembers = (declspec declarator (","  declarator)* ";")*
 // structDecl = structUnionDecl
 // unionDecl = structUnionDecl
@@ -1065,7 +1067,9 @@ static Node *cast(Token **Rest, Token *Tok) {
 }
 
 // 解析一元运算
-// unary = ("+" | "-" | "*" | "&" | "!") cast | ("++" | "--") unary | postfix
+// unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
+//       | ("++" | "--") unary
+//       | postfix
 static Node *unary(Token **Rest, Token *Tok) {
   // "+" cast
   if (equal(Tok, "+"))
@@ -1086,6 +1090,10 @@ static Node *unary(Token **Rest, Token *Tok) {
   // "!" cast
   if (equal(Tok, "!"))
     return newUnary(ND_NOT, cast(Rest, Tok->Next), Tok);
+
+  // "~" cast
+  if (equal(Tok, "~"))
+    return newUnary(ND_BITNOT, cast(Rest, Tok->Next), Tok);
 
   // 转换 ++i 为 i+=1
   // "++" unary

@@ -117,6 +117,7 @@ typedef enum {
   ND_ADDR,      // 取地址 &
   ND_DEREF,     // 解引用 *
   ND_NOT,       // !，非
+  ND_BITNOT,    // ~，按位取非
   ND_RETURN,    // 返回
   ND_IF,        // "if"，条件判断
   ND_FOR,       // "for" 或 "while"，循环
