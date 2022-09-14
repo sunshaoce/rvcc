@@ -145,6 +145,8 @@ void addType(Node *Nd) {
     return;
   // 将节点类型设为 int
   case ND_NOT:
+  case ND_LOGOR:
+  case ND_LOGAND:
     Nd->Ty = TyInt;
     return;
   // 将节点类型设为 左部的类型
