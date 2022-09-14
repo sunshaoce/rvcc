@@ -155,6 +155,9 @@ struct Node {
   Node *Init; // 初始化语句
   Node *Inc;  // 递增语句
 
+  // "break" 标签
+  char *BrkLabel;
+
   // 代码块 或 语句表达式
   Node *Body;
 

@@ -466,8 +466,8 @@ static void genStmt(Node *Nd) {
       // 生成条件循环语句
       genExpr(Nd->Cond);
       // 判断结果是否为0，为0则跳转到结束部分
-      printLn("  # 若a0为0，则跳转到循环%d的.L.end.%d段", C, C);
-      printLn("  beqz a0, .L.end.%d", C);
+      printLn("  # 若a0为0，则跳转到循环%d的%s段", C, Nd->BrkLabel);
+      printLn("  beqz a0, %s", Nd->BrkLabel);
     }
     // 生成循环体语句
     printLn("\n# Then语句%d", C);
@@ -482,8 +482,8 @@ static void genStmt(Node *Nd) {
     printLn("  # 跳转到循环%d的.L.begin.%d段", C, C);
     printLn("  j .L.begin.%d", C);
     // 输出循环尾部标签
-    printLn("\n# 循环%d的.L.end.%d段标签", C, C);
-    printLn(".L.end.%d:", C);
+    printLn("\n# 循环%d的%s段标签", C, Nd->BrkLabel);
+    printLn("%s:", Nd->BrkLabel);
     return;
   }
   // 生成代码块，遍历代码块的语句链表
