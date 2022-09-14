@@ -157,6 +157,8 @@ struct Node {
 
   // "break" 标签
   char *BrkLabel;
+  // "continue" 标签
+  char *ContLabel;
 
   // 代码块 或 语句表达式
   Node *Body;

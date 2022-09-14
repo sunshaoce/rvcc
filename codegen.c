@@ -472,6 +472,8 @@ static void genStmt(Node *Nd) {
     // 生成循环体语句
     printLn("\n# Then语句%d", C);
     genStmt(Nd->Then);
+    // continue标签语句
+    printLn("%s:", Nd->ContLabel);
     // 处理循环递增语句
     if (Nd->Inc) {
       printLn("\n# Inc语句%d", C);
