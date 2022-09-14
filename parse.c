@@ -45,6 +45,10 @@ static Scope *Scp = &(Scope){};
 // 指向当前正在解析的函数
 static Obj *CurrentFn;
 
+// 当前函数内的goto和标签列表
+static Node *Gotos;
+static Node *Labels;
+
 // program = (typedef | functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
@@ -67,6 +71,8 @@ static Obj *CurrentFn;
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
+//        | "goto" ident ";"
+//        | ident ":" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 // exprStmt = expr? ";"
@@ -678,6 +684,8 @@ static bool isTypename(Token *Tok) {
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
+//        | "goto" ident ";"
+//        | ident ":" stmt
 //        | "{" compoundStmt
 //        | exprStmt
 static Node *stmt(Token **Rest, Token *Tok) {
@@ -759,6 +767,29 @@ static Node *stmt(Token **Rest, Token *Tok) {
     Tok = skip(Tok, ")");
     // stmt
     Nd->Then = stmt(Rest, Tok);
+    return Nd;
+  }
+
+  // "goto" ident ";"
+  if (equal(Tok, "goto")) {
+    Node *Nd = newNode(ND_GOTO, Tok);
+    Nd->Label = getIdent(Tok->Next);
+    // 将Nd同时存入Gotos，最后用于解析UniqueLabel
+    Nd->GotoNext = Gotos;
+    Gotos = Nd;
+    *Rest = skip(Tok->Next->Next, ";");
+    return Nd;
+  }
+
+  // ident ":" stmt
+  if (Tok->Kind == TK_IDENT && equal(Tok->Next, ":")) {
+    Node *Nd = newNode(ND_LABEL, Tok);
+    Nd->Label = strndup(Tok->Loc, Tok->Len);
+    Nd->UniqueLabel = newUniqueName();
+    Nd->LHS = stmt(Rest, Tok->Next->Next);
+    // 将Nd同时存入Labels，最后用于goto解析UniqueLabel
+    Nd->GotoNext = Labels;
+    Labels = Nd;
     return Nd;
   }
 
@@ -1585,6 +1616,26 @@ static void createParamLVars(Type *Param) {
   }
 }
 
+// 匹配goto和标签
+// 因为标签可能会出现在goto后面，所以要在解析完函数后再进行goto和标签的解析
+static void resolveGotoLabels(void) {
+  // 遍历使goto对应上label
+  for (Node *X = Gotos; X; X = X->GotoNext) {
+    for (Node *Y = Labels; Y; Y = Y->GotoNext) {
+      if (!strcmp(X->Label, Y->Label)) {
+        X->UniqueLabel = Y->UniqueLabel;
+        break;
+      }
+    }
+
+    if (X->UniqueLabel == NULL)
+      errorTok(X->Tok->Next, "use of undeclared label");
+  }
+
+  Gotos = NULL;
+  Labels = NULL;
+}
+
 // functionDefinition = declspec declarator "{" compoundStmt*
 static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Type *Ty = declarator(&Tok, Tok, BaseTy);
@@ -1613,6 +1664,8 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Fn->Locals = Locals;
   // 结束当前域
   leaveScope();
+  // 处理goto和标签
+  resolveGotoLabels();
   return Tok;
 }
 
