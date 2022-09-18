@@ -262,6 +262,15 @@ static void genExpr(Node *Nd) {
     genExpr(Nd->LHS);
     cast(Nd->LHS->Ty, Nd->Ty);
     return;
+  // 内存清零
+  case ND_MEMZERO: {
+    printLn("  # 对%s的内存%d(fp)清零%d位", Nd->Var->Name, Nd->Var->Offset,
+            Nd->Var->Ty->Size);
+    // 对栈内变量所占用的每个字节都进行清零
+    for (int I = 0; I < Nd->Var->Ty->Size; I++)
+      printLn("  sb zero, %d(fp)", Nd->Var->Offset + I);
+    return;
+  }
   // 条件运算符
   case ND_COND: {
     int C = count();
