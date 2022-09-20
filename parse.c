@@ -100,7 +100,9 @@ static Node *CurrentSwitch;
 // compoundStmt = (typedef | declaration | stmt)* "}"
 // declaration = declspec (declarator ("=" initializer)?
 //                         ("," declarator ("=" initializer)?)*)? ";"
-// initializer = "{" initializer ("," initializer)* "}" | assign
+// initializer = stringInitializer | arrayInitializer | assign
+// stringInitializer = stringLiteral
+// arrayInitializer = "{" initializer ("," initializer)* "}"
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
@@ -156,6 +158,8 @@ static Type *enumSpecifier(Token **Rest, Token *Tok);
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy);
+static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
+static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty);
 static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var);
 static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *stmt(Token **Rest, Token *Tok);
@@ -727,25 +731,45 @@ static Token *skipExcessElement(Token *Tok) {
   return Tok;
 }
 
-// initializer = "{" initializer ("," initializer)* "}" | assign
+// stringInitializer = stringLiteral
+static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
+  // 取数组和字符串的最短长度
+  int Len = MIN(Init->Ty->ArrayLen, Tok->Ty->ArrayLen);
+  // 遍历赋值
+  for (int I = 0; I < Len; I++)
+    Init->Children[I]->Expr = newNum(Tok->Str[I], Tok);
+  *Rest = Tok->Next;
+}
+
+// arrayInitializer = "{" initializer ("," initializer)* "}"
+static void arrayInitializer(Token **Rest, Token *Tok, Initializer *Init) {
+  Tok = skip(Tok, "{");
+
+  // 遍历数组
+  for (int I = 0; !consume(Rest, Tok, "}"); I++) {
+    if (I > 0)
+      Tok = skip(Tok, ",");
+
+    // 正常解析元素
+    if (I < Init->Ty->ArrayLen)
+      initializer2(&Tok, Tok, Init->Children[I]);
+    // 跳过多余的元素
+    else
+      Tok = skipExcessElement(Tok);
+  }
+}
+
+// initializer = stringInitializer | arrayInitializer | assign
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
-  // "{" initializer ("," initializer)* "}"
+  // 字符串字面量的初始化
+  if (Init->Ty->Kind == TY_ARRAY && Tok->Kind == TK_STR) {
+    stringInitializer(Rest, Tok, Init);
+    return;
+  }
+
+  // 数组的初始化
   if (Init->Ty->Kind == TY_ARRAY) {
-    Tok = skip(Tok, "{");
-
-    // 遍历数组
-    for (int I = 0; !consume(Rest, Tok, "}"); I++) {
-      if (I > 0)
-        Tok = skip(Tok, ",");
-
-      // 正常解析元素
-      if (I < Init->Ty->ArrayLen)
-        initializer2(&Tok, Tok, Init->Children[I]);
-      // 跳过多余的元素
-      else
-        Tok = skipExcessElement(Tok);
-    }
-    *Rest = skip(Tok, "}");
+    arrayInitializer(Rest, Tok, Init);
     return;
   }
 
