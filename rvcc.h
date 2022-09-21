@@ -250,6 +250,7 @@ struct Member {
   Type *Ty;     // 类型
   Token *Tok;   // 用于报错信息
   Token *Name;  // 名称
+  int Idx;      // 索引值
   int Offset;   // 偏移量
 };
 
