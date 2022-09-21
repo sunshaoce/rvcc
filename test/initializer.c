@@ -62,6 +62,9 @@ int main() {
   ASSERT(5, ({ typedef struct {int a,b,c,d,e,f;} T; T x={1,2,3,4,5,6}; T y; y=x; y.e; }));
   ASSERT(2, ({ typedef struct {int a,b;} T; T x={1,2}; T y, z; z=y=x; z.b; }));
 
+  // [103] 初始化结构体时可使用其他结构体
+  ASSERT(1, ({ typedef struct {int a,b;} T; T x={1,2}; T y=x; y.a; }));
+
   printf("OK\n");
   return 0;
 }
