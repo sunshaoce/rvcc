@@ -35,6 +35,30 @@ typedef struct {
   bool IsStatic;  // 是否为文件域内
 } VarAttr;
 
+// 可变的初始化器。此处为树状结构。
+// 因为初始化器可以是嵌套的，
+// 类似于 int x[2][2] = {{1, 2}, {3, 4}} ，
+typedef struct Initializer Initializer;
+struct Initializer {
+  Initializer *Next; // 下一个
+  Type *Ty;          // 原始类型
+  Token *Tok;        // 终结符
+
+  // 如果不是聚合类型，并且有一个初始化器，Expr 有对应的初始化表达式。
+  Node *Expr;
+
+  // 如果是聚合类型（如数组或结构体），Children有子节点的初始化器
+  Initializer **Children;
+};
+
+// 指派初始化，用于局部变量的初始化器
+typedef struct InitDesig InitDesig;
+struct InitDesig {
+  InitDesig *Next; // 下一个
+  int Idx;         // 数组中的索引
+  Obj *Var;        // 对应的变量
+};
+
 // 在解析时，全部的变量实例都被累加到这个列表里。
 Obj *Locals;  // 局部变量
 Obj *Globals; // 全局变量
@@ -74,8 +98,9 @@ static Node *CurrentSwitch;
 // param = declspec declarator
 
 // compoundStmt = (typedef | declaration | stmt)* "}"
-// declaration =
-//    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declaration = declspec (declarator ("=" initializer)?
+//                         ("," declarator ("=" initializer)?)*)? ";"
+// initializer = "{" initializer ("," initializer)* "}" | assign
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
@@ -131,6 +156,7 @@ static Type *enumSpecifier(Token **Rest, Token *Tok);
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy);
+static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var);
 static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
@@ -255,6 +281,24 @@ static VarScope *pushScope(char *Name) {
   S->Next = Scp->Vars;
   Scp->Vars = S;
   return S;
+}
+
+// 新建初始化器
+static Initializer *newInitializer(Type *Ty) {
+  Initializer *Init = calloc(1, sizeof(Initializer));
+  // 存储原始类型
+  Init->Ty = Ty;
+
+  // 处理数组类型
+  if (Ty->Kind == TY_ARRAY) {
+    // 为数组的最外层的每个元素分配空间
+    Init->Children = calloc(Ty->ArrayLen, sizeof(Initializer *));
+    // 遍历解析数组最外层的每个元素
+    for (int I = 0; I < Ty->ArrayLen; ++I)
+      Init->Children[I] = newInitializer(Ty->Base);
+  }
+
+  return Init;
 }
 
 // 新建变量
@@ -630,8 +674,8 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
   return Ty;
 }
 
-// declaration =
-//    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declaration = declspec (declarator ("=" initializer)?
+//                         ("," declarator ("=" initializer)?)*)? ";"
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
   Node Head = {};
   Node *Cur = &Head;
@@ -655,17 +699,13 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
     Obj *Var = newLVar(getIdent(Ty->Name), Ty);
 
     // 如果不存在"="则为变量声明，不需要生成节点，已经存储在Locals中了
-    if (!equal(Tok, "="))
-      continue;
-
-    // 解析“=”后面的Token
-    Node *LHS = newVarNode(Var, Ty->Name);
-    // 解析递归赋值语句
-    Node *RHS = assign(&Tok, Tok->Next);
-    Node *Node = newBinary(ND_ASSIGN, LHS, RHS, Tok);
-    // 存放在表达式语句中
-    Cur->Next = newUnary(ND_EXPR_STMT, Node, Tok);
-    Cur = Cur->Next;
+    if (equal(Tok, "=")) {
+      // 解析变量的初始化器
+      Node *Expr = LVarInitializer(&Tok, Tok->Next, Var);
+      // 存放在表达式语句中
+      Cur->Next = newUnary(ND_EXPR_STMT, Expr, Tok);
+      Cur = Cur->Next;
+    }
   }
 
   // 将所有表达式语句，存放在代码块中
@@ -673,6 +713,86 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
   Nd->Body = Head.Next;
   *Rest = Tok->Next;
   return Nd;
+}
+
+// initializer = "{" initializer ("," initializer)* "}" | assign
+static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
+  // "{" initializer ("," initializer)* "}"
+  if (Init->Ty->Kind == TY_ARRAY) {
+    Tok = skip(Tok, "{");
+
+    // 遍历数组
+    for (int I = 0; I < Init->Ty->ArrayLen; I++) {
+      if (I > 0)
+        Tok = skip(Tok, ",");
+      initializer2(&Tok, Tok, Init->Children[I]);
+    }
+    *Rest = skip(Tok, "}");
+    return;
+  }
+
+  // assign
+  // 为节点存储对应的表达式
+  Init->Expr = assign(Rest, Tok);
+}
+
+// 初始化器
+static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty) {
+  // 新建一个解析了类型的初始化器
+  Initializer *Init = newInitializer(Ty);
+  // 解析需要赋值到Init中
+  initializer2(Rest, Tok, Init);
+  return Init;
+}
+
+// 指派初始化表达式
+static Node *initDesigExpr(InitDesig *Desig, Token *Tok) {
+  // 返回Desig中的变量
+  if (Desig->Var)
+    return newVarNode(Desig->Var, Tok);
+
+  // 需要赋值的变量名
+  // 递归到次外层Desig，有此时最外层有Desig->Var
+  // 然后逐层计算偏移量
+  Node *LHS = initDesigExpr(Desig->Next, Tok);
+  // 偏移量
+  Node *RHS = newNum(Desig->Idx, Tok);
+  // 返回偏移后的变量地址
+  return newUnary(ND_DEREF, newAdd(LHS, RHS, Tok), Tok);
+}
+
+// 创建局部变量的初始化
+static Node *createLVarInit(Initializer *Init, Type *Ty, InitDesig *Desig,
+                            Token *Tok) {
+  if (Ty->Kind == TY_ARRAY) {
+    // 预备空表达式的情况
+    Node *Nd = newNode(ND_NULL_EXPR, Tok);
+    for (int I = 0; I < Ty->ArrayLen; I++) {
+      // 这里next指向了上一级Desig的信息，以及在其中的偏移量。
+      InitDesig Desig2 = {Desig, I};
+      // 局部变量进行初始化
+      Node *RHS = createLVarInit(Init->Children[I], Ty->Base, &Desig2, Tok);
+      // 构造一个形如：NULL_EXPR，EXPR1，EXPR2…的二叉树
+      Nd = newBinary(ND_COMMA, Nd, RHS, Tok);
+    }
+    return Nd;
+  }
+
+  // 变量等可以直接赋值的左值
+  Node *LHS = initDesigExpr(Desig, Tok);
+  // 初始化的右值
+  Node *RHS = Init->Expr;
+  return newBinary(ND_ASSIGN, LHS, RHS, Tok);
+}
+
+// 局部变量初始化器
+static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
+  // 获取初始化器，将值与数据结构一一对应
+  Initializer *Init = initializer(Rest, Tok, Var->Ty);
+  // 指派初始化
+  InitDesig Desig = {NULL, 0, Var};
+  // 创建局部变量的初始化
+  return createLVarInit(Init, Var->Ty, &Desig, Tok);
 }
 
 // 判断是否为类型名

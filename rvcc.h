@@ -102,6 +102,7 @@ struct Obj {
 
 // AST的节点种类
 typedef enum {
+  ND_NULL_EXPR, // 空表达式
   ND_ADD,       // +
   ND_SUB,       // -
   ND_MUL,       // *

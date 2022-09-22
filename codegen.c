@@ -207,6 +207,9 @@ static void genExpr(Node *Nd) {
 
   // 生成各个根节点
   switch (Nd->Kind) {
+  // 空表达式
+  case ND_NULL_EXPR:
+    return;
   // 加载数字到a0
   case ND_NUM:
     printLn("  # 将%d加载到a0中", Nd->Val);
