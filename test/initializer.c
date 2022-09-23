@@ -65,6 +65,12 @@ int main() {
   // [103] 初始化结构体时可使用其他结构体
   ASSERT(1, ({ typedef struct {int a,b;} T; T x={1,2}; T y=x; y.a; }));
 
+  // [104] 为局部变量处理联合体初始化
+  ASSERT(4, ({ union { int a; char b[4]; } x={0x01020304}; x.b[0]; }));
+  ASSERT(3, ({ union { int a; char b[4]; } x={0x01020304}; x.b[1]; }));
+
+  ASSERT(0x01020304, ({ union { struct { char a,b,c,d; } e; int f; } x={{4,3,2,1}}; x.f; }));
+
   printf("OK\n");
   return 0;
 }
