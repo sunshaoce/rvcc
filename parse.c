@@ -98,8 +98,10 @@ static Node *CurrentSwitch;
 // bitXor = bitAnd ("^" bitAnd)*
 // bitAnd = equality ("&" equality)*
 // assignOp = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+//          | "<<=" | ">>="
 // equality = relational ("==" relational | "!=" relational)*
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
+// shift = add ("<<" add | ">>" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = cast ("*" cast | "/" cast | "%" cast)*
 // cast = "(" typeName ")" cast | unary
@@ -140,6 +142,7 @@ static Node *bitXor(Token **Rest, Token *Tok);
 static Node *bitAnd(Token **Rest, Token *Tok);
 static Node *equality(Token **Rest, Token *Tok);
 static Node *relational(Token **Rest, Token *Tok);
+static Node *shift(Token **Rest, Token *Tok);
 static Node *add(Token **Rest, Token *Tok);
 static Node *newAdd(Node *LHS, Node *RHS, Token *Tok);
 static Node *newSub(Node *LHS, Node *RHS, Token *Tok);
@@ -1028,6 +1031,7 @@ static Node *toAssign(Node *Binary) {
 // 解析赋值
 // assign = logOr (assignOp assign)?
 // assignOp = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+//          | "<<=" | ">>="
 static Node *assign(Token **Rest, Token *Tok) {
   // equality
   Node *Nd = logOr(&Tok, Tok);
@@ -1068,6 +1072,14 @@ static Node *assign(Token **Rest, Token *Tok) {
   // ("^=" assign)?
   if (equal(Tok, "^="))
     return toAssign(newBinary(ND_BITXOR, Nd, assign(Rest, Tok->Next), Tok));
+
+  // ("<<=" assign)?
+  if (equal(Tok, "<<="))
+    return toAssign(newBinary(ND_SHL, Nd, assign(Rest, Tok->Next), Tok));
+
+  // (">>=" assign)?
+  if (equal(Tok, ">>="))
+    return toAssign(newBinary(ND_SHR, Nd, assign(Rest, Tok->Next), Tok));
 
   *Rest = Tok;
   return Nd;
@@ -1161,38 +1173,64 @@ static Node *equality(Token **Rest, Token *Tok) {
 }
 
 // 解析比较关系
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
 static Node *relational(Token **Rest, Token *Tok) {
-  // add
-  Node *Nd = add(&Tok, Tok);
+  // shift
+  Node *Nd = shift(&Tok, Tok);
 
-  // ("<" add | "<=" add | ">" add | ">=" add)*
+  // ("<" shift | "<=" shift | ">" shift | ">=" shift)*
   while (true) {
     Token *Start = Tok;
 
-    // "<" add
+    // "<" shift
     if (equal(Tok, "<")) {
-      Nd = newBinary(ND_LT, Nd, add(&Tok, Tok->Next), Start);
+      Nd = newBinary(ND_LT, Nd, shift(&Tok, Tok->Next), Start);
       continue;
     }
 
-    // "<=" add
+    // "<=" shift
     if (equal(Tok, "<=")) {
-      Nd = newBinary(ND_LE, Nd, add(&Tok, Tok->Next), Start);
+      Nd = newBinary(ND_LE, Nd, shift(&Tok, Tok->Next), Start);
       continue;
     }
 
-    // ">" add
+    // ">" shift
     // X>Y等价于Y<X
     if (equal(Tok, ">")) {
-      Nd = newBinary(ND_LT, add(&Tok, Tok->Next), Nd, Start);
+      Nd = newBinary(ND_LT, shift(&Tok, Tok->Next), Nd, Start);
       continue;
     }
 
-    // ">=" add
+    // ">=" shift
     // X>=Y等价于Y<=X
     if (equal(Tok, ">=")) {
-      Nd = newBinary(ND_LE, add(&Tok, Tok->Next), Nd, Start);
+      Nd = newBinary(ND_LE, shift(&Tok, Tok->Next), Nd, Start);
+      continue;
+    }
+
+    *Rest = Tok;
+    return Nd;
+  }
+}
+
+// 解析位移
+// shift = add ("<<" add | ">>" add)*
+static Node *shift(Token **Rest, Token *Tok) {
+  // add
+  Node *Nd = add(&Tok, Tok);
+
+  while (true) {
+    Token *Start = Tok;
+
+    // "<<" add
+    if (equal(Tok, "<<")) {
+      Nd = newBinary(ND_SHL, Nd, add(&Tok, Tok->Next), Start);
+      continue;
+    }
+
+    // ">>" add
+    if (equal(Tok, ">>")) {
+      Nd = newBinary(ND_SHR, Nd, add(&Tok, Tok->Next), Start);
       continue;
     }
 

@@ -154,6 +154,8 @@ void addType(Node *Nd) {
     return;
   // 将节点类型设为 左部的类型
   case ND_BITNOT:
+  case ND_SHL:
+  case ND_SHR:
     Nd->Ty = Nd->LHS->Ty;
     return;
   // 将节点类型设为 变量的类型
