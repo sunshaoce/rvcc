@@ -91,7 +91,8 @@ static Node *CurrentSwitch;
 //        | exprStmt
 // exprStmt = expr? ";"
 // expr = assign ("," expr)?
-// assign = logOr (assignOp assign)?
+// assign = conditional (assignOp assign)?
+// conditional = logOr ("?" expr ":" conditional)?
 // logOr = logAnd ("||" logAnd)*
 // logAnd = bitOr ("&&" bitOr)*
 // bitOr = bitXor ("|" bitXor)*
@@ -135,6 +136,7 @@ static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
 static Node *assign(Token **Rest, Token *Tok);
+static Node *conditional(Token **Rest, Token *Tok);
 static Node *logOr(Token **Rest, Token *Tok);
 static Node *logAnd(Token **Rest, Token *Tok);
 static Node *bitOr(Token **Rest, Token *Tok);
@@ -1029,12 +1031,12 @@ static Node *toAssign(Node *Binary) {
 }
 
 // 解析赋值
-// assign = logOr (assignOp assign)?
+// assign = conditional (assignOp assign)?
 // assignOp = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
 //          | "<<=" | ">>="
 static Node *assign(Token **Rest, Token *Tok) {
-  // equality
-  Node *Nd = logOr(&Tok, Tok);
+  // conditional
+  Node *Nd = conditional(&Tok, Tok);
 
   // 可能存在递归赋值，如a=b=1
   // ("=" assign)?
@@ -1082,6 +1084,29 @@ static Node *assign(Token **Rest, Token *Tok) {
     return toAssign(newBinary(ND_SHR, Nd, assign(Rest, Tok->Next), Tok));
 
   *Rest = Tok;
+  return Nd;
+}
+
+// 解析条件运算符
+// conditional = logOr ("?" expr ":" conditional)?
+static Node *conditional(Token **Rest, Token *Tok) {
+  // logOr
+  Node *Cond = logOr(&Tok, Tok);
+
+  // "?"
+  if (!equal(Tok, "?")) {
+    *Rest = Tok;
+    return Cond;
+  }
+
+  // expr ":" conditional
+  Node *Nd = newNode(ND_COND, Tok);
+  Nd->Cond = Cond;
+  // expr ":"
+  Nd->Then = expr(&Tok, Tok->Next);
+  Tok = skip(Tok, ":");
+  // conditional，这里不能被解析为赋值式
+  Nd->Els = conditional(Rest, Tok);
   return Nd;
 }
 
