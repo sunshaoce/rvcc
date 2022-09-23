@@ -943,6 +943,13 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
     return;
   }
 
+  // 处理标量外的大括号，例如：int x = {3};
+  if (equal(Tok, "{")) {
+    initializer2(&Tok, Tok->Next, Init);
+    *Rest = skip(Tok, "}");
+    return;
+  }
+
   // assign
   // 为节点存储对应的表达式
   Init->Expr = assign(Rest, Tok);

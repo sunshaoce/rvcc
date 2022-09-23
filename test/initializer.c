@@ -35,6 +35,9 @@ struct {int a[2];} g40[2] = {{1, 2}, 3, 4};
 struct {int a[2];} g41[2] = {1, 2, 3, 4};
 char g43[][4] = {'f', 'o', 'o', 0, 'b', 'a', 'r', 0};
 
+// [109] 允许标量初始化时有多余的大括号
+char *g44 = {"foo"};
+
 int main() {
   // [97] 支持局部变量初始化器
   ASSERT(1, ({ int x[3]={1,2,3}; x[0]; }));
@@ -183,6 +186,9 @@ int main() {
 
   ASSERT(0, strcmp(g43[0], "foo"));
   ASSERT(0, strcmp(g43[1], "bar"));
+
+  // [109] 允许标量初始化时有多余的大括号
+  ASSERT(0, strcmp(g44, "foo"));
 
   printf("OK\n");
   return 0;
