@@ -43,6 +43,7 @@ struct Initializer {
   Initializer *Next; // 下一个
   Type *Ty;          // 原始类型
   Token *Tok;        // 终结符
+  bool IsFlexible;   // 可调整的，表示需要重新构造
 
   // 如果不是聚合类型，并且有一个初始化器，Expr 有对应的初始化表达式。
   Node *Expr;
@@ -159,7 +160,8 @@ static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy);
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
-static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty);
+static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
+                                Type **NewTy);
 static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var);
 static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *stmt(Token **Rest, Token *Tok);
@@ -288,18 +290,25 @@ static VarScope *pushScope(char *Name) {
 }
 
 // 新建初始化器
-static Initializer *newInitializer(Type *Ty) {
+static Initializer *newInitializer(Type *Ty, bool IsFlexible) {
   Initializer *Init = calloc(1, sizeof(Initializer));
   // 存储原始类型
   Init->Ty = Ty;
 
   // 处理数组类型
   if (Ty->Kind == TY_ARRAY) {
+    // 判断是否需要调整数组元素数并且数组不完整
+    if (IsFlexible && Ty->Size < 0) {
+      // 设置初始化器为可调整的，之后进行完数组元素数的计算后，再构造初始化器
+      Init->IsFlexible = true;
+      return Init;
+    }
+
     // 为数组的最外层的每个元素分配空间
     Init->Children = calloc(Ty->ArrayLen, sizeof(Initializer *));
     // 遍历解析数组最外层的每个元素
     for (int I = 0; I < Ty->ArrayLen; ++I)
-      Init->Children[I] = newInitializer(Ty->Base);
+      Init->Children[I] = newInitializer(Ty->Base, false);
   }
 
   return Init;
@@ -695,8 +704,6 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
     // declarator
     // 声明获取到变量类型，包括变量名
     Type *Ty = declarator(&Tok, Tok, BaseTy);
-    if (Ty->Size < 0)
-      errorTok(Tok, "variable has incomplete type");
     if (Ty->Kind == TY_VOID)
       errorTok(Tok, "variable declared void");
 
@@ -710,6 +717,11 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
       Cur->Next = newUnary(ND_EXPR_STMT, Expr, Tok);
       Cur = Cur->Next;
     }
+
+    if (Var->Ty->Size < 0)
+      errorTok(Ty->Name, "variable has incomplete type");
+    if (Var->Ty->Kind == TY_VOID)
+      errorTok(Ty->Name, "variable declared void");
   }
 
   // 将所有表达式语句，存放在代码块中
@@ -733,6 +745,11 @@ static Token *skipExcessElement(Token *Tok) {
 
 // stringInitializer = stringLiteral
 static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
+  // 如果是可调整的，就构造一个包含数组的初始化器
+  // 字符串字面量在词法解析部分已经增加了'\0'
+  if (Init->IsFlexible)
+    *Init = *newInitializer(arrayOf(Init->Ty->Base, Tok->Ty->ArrayLen), false);
+
   // 取数组和字符串的最短长度
   int Len = MIN(Init->Ty->ArrayLen, Tok->Ty->ArrayLen);
   // 遍历赋值
@@ -741,9 +758,31 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   *Rest = Tok->Next;
 }
 
+// 计算数组初始化元素个数
+static int countArrayInitElements(Token *Tok, Type *Ty) {
+  Initializer *Dummy = newInitializer(Ty->Base, false);
+  // 项数
+  int I = 0;
+
+  // 遍历所有匹配的项
+  for (; !equal(Tok, "}"); I++) {
+    if (I > 0)
+      Tok = skip(Tok, ",");
+    initializer2(&Tok, Tok, Dummy);
+  }
+  return I;
+}
+
 // arrayInitializer = "{" initializer ("," initializer)* "}"
 static void arrayInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
+
+  // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
+  if (Init->IsFlexible) {
+    int Len = countArrayInitElements(Tok, Init->Ty);
+    // 在这里Ty也被重新构造为了数组
+    *Init = *newInitializer(arrayOf(Init->Ty->Base, Len), false);
+  }
 
   // 遍历数组
   for (int I = 0; !consume(Rest, Tok, "}"); I++) {
@@ -779,11 +818,14 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // 初始化器
-static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty) {
+static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
+                                Type **NewTy) {
   // 新建一个解析了类型的初始化器
-  Initializer *Init = newInitializer(Ty);
+  Initializer *Init = newInitializer(Ty, true);
   // 解析需要赋值到Init中
   initializer2(Rest, Tok, Init);
+  // 将新类型传回变量
+  *NewTy = Init->Ty;
   return Init;
 }
 
@@ -832,7 +874,7 @@ static Node *createLVarInit(Initializer *Init, Type *Ty, InitDesig *Desig,
 // 局部变量初始化器
 static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
   // 获取初始化器，将值与数据结构一一对应
-  Initializer *Init = initializer(Rest, Tok, Var->Ty);
+  Initializer *Init = initializer(Rest, Tok, Var->Ty, &Var->Ty);
   // 指派初始化
   InitDesig Desig = {NULL, 0, Var};
 
