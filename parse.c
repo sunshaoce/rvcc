@@ -105,8 +105,15 @@ static Node *CurrentSwitch;
 // initializer = stringInitializer | arrayInitializer | structInitializer
 //             | unionInitializer |assign
 // stringInitializer = stringLiteral
-// arrayInitializer = "{" initializer ("," initializer)* "}"
-// structInitializer = "{" initializer ("," initializer)* "}"
+
+// arrayInitializer = arrayInitializer1 | arrayInitializer2
+// arrayInitializer1 = "{" initializer ("," initializer)* "}"
+// arrayIntializer2 = initializer ("," initializer)*
+
+// structInitializer = structInitializer1 | structInitializer2
+// structInitializer1 = "{" initializer ("," initializer)* "}"
+// structIntializer2 = initializer ("," initializer)*
+
 // unionInitializer = "{" initializer "}"
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
@@ -797,8 +804,8 @@ static int countArrayInitElements(Token *Tok, Type *Ty) {
   return I;
 }
 
-// arrayInitializer = "{" initializer ("," initializer)* "}"
-static void arrayInitializer(Token **Rest, Token *Tok, Initializer *Init) {
+// arrayInitializer1 = "{" initializer ("," initializer)* "}"
+static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
 
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
@@ -822,8 +829,25 @@ static void arrayInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   }
 }
 
-// structInitializer = "{" initializer ("," initializer)* "}"
-static void structInitializer(Token **Rest, Token *Tok, Initializer *Init) {
+// arrayIntializer2 = initializer ("," initializer)*
+static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+  // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
+  if (Init->IsFlexible) {
+    int Len = countArrayInitElements(Tok, Init->Ty);
+    *Init = *newInitializer(arrayOf(Init->Ty->Base, Len), false);
+  }
+
+  // 遍历数组
+  for (int I = 0; I < Init->Ty->ArrayLen && !equal(Tok, "}"); I++) {
+    if (I > 0)
+      Tok = skip(Tok, ",");
+    initializer2(&Tok, Tok, Init->Children[I]);
+  }
+  *Rest = Tok;
+}
+
+// structInitializer1 = "{" initializer ("," initializer)* "}"
+static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
 
   // 成员变量的链表
@@ -845,12 +869,31 @@ static void structInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   }
 }
 
+// structIntializer2 = initializer ("," initializer)*
+static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+  bool First = true;
+
+  // 遍历所有成员变量
+  for (Member *Mem = Init->Ty->Mems; Mem && !equal(Tok, "}"); Mem = Mem->Next) {
+    if (!First)
+      Tok = skip(Tok, ",");
+    First = false;
+    initializer2(&Tok, Tok, Init->Children[Mem->Idx]);
+  }
+  *Rest = Tok;
+}
+
 // unionInitializer = "{" initializer "}"
 static void unionInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   // 联合体只接受第一个成员用来初始化
-  Tok = skip(Tok, "{");
-  initializer2(&Tok, Tok, Init->Children[0]);
-  *Rest = skip(Tok, "}");
+  if (equal(Tok, "{")) {
+    // 存在括号的情况
+    initializer2(&Tok, Tok->Next, Init->Children[0]);
+    *Rest = skip(Tok, "}");
+  } else {
+    // 不存在括号的情况
+    initializer2(Rest, Tok, Init->Children[0]);
+  }
 }
 
 // initializer = stringInitializer | arrayInitializer | structInitializer
@@ -864,23 +907,33 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 数组的初始化
   if (Init->Ty->Kind == TY_ARRAY) {
-    arrayInitializer(Rest, Tok, Init);
+    if (equal(Tok, "{"))
+      // 存在括号的情况
+      arrayInitializer1(Rest, Tok, Init);
+    else
+      // 不存在括号的情况
+      arrayInitializer2(Rest, Tok, Init);
     return;
   }
 
   // 结构体的初始化
   if (Init->Ty->Kind == TY_STRUCT) {
     // 匹配使用其他结构体来赋值，其他结构体需要先被解析过
-    if (!equal(Tok, "{")) {
-      Node *Expr = assign(Rest, Tok);
-      addType(Expr);
-      if (Expr->Ty->Kind == TY_STRUCT) {
-        Init->Expr = Expr;
-        return;
-      }
+    // 存在括号的情况
+    if (equal(Tok, "{")) {
+      structInitializer1(Rest, Tok, Init);
+      return;
     }
 
-    structInitializer(Rest, Tok, Init);
+    // 不存在括号的情况
+    Node *Expr = assign(Rest, Tok);
+    addType(Expr);
+    if (Expr->Ty->Kind == TY_STRUCT) {
+      Init->Expr = Expr;
+      return;
+    }
+
+    structInitializer2(Rest, Tok, Init);
     return;
   }
 

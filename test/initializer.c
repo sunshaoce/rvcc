@@ -29,6 +29,12 @@ long g29 = (long)(long)g26;
 struct { struct { int a[3]; } a; } g30 = {{{1,2,3}}};
 int *g31=g30.a.a;
 
+// [108] 允许省略初始化器内的括号
+union { int a; char b[8]; } g13_2[2] = {0x01020304, 0x05060708};
+struct {int a[2];} g40[2] = {{1, 2}, 3, 4};
+struct {int a[2];} g41[2] = {1, 2, 3, 4};
+char g43[][4] = {'f', 'o', 'o', 0, 'b', 'a', 'r', 0};
+
 int main() {
   // [97] 支持局部变量初始化器
   ASSERT(1, ({ int x[3]={1,2,3}; x[0]; }));
@@ -152,6 +158,31 @@ int main() {
   ASSERT(1, g31[0]);
   ASSERT(2, g31[1]);
   ASSERT(3, g31[2]);
+
+  // [108] 允许省略初始化器内的括号
+  ASSERT(4, g13_2[0].b[0]);
+  ASSERT(3, g13_2[0].b[1]);
+  ASSERT(8, g13_2[1].b[0]);
+  ASSERT(7, g13_2[1].b[1]);
+
+  ASSERT(1, g40[0].a[0]);
+  ASSERT(2, g40[0].a[1]);
+  ASSERT(3, g40[1].a[0]);
+  ASSERT(4, g40[1].a[1]);
+
+  ASSERT(1, g41[0].a[0]);
+  ASSERT(2, g41[0].a[1]);
+  ASSERT(3, g41[1].a[0]);
+  ASSERT(4, g41[1].a[1]);
+
+  ASSERT(0, ({ int x[2][3]={0,1,2,3,4,5}; x[0][0]; }));
+  ASSERT(3, ({ int x[2][3]={0,1,2,3,4,5}; x[1][0]; }));
+
+  ASSERT(0, ({ struct {int a; int b;} x[2]={0,1,2,3}; x[0].a; }));
+  ASSERT(2, ({ struct {int a; int b;} x[2]={0,1,2,3}; x[1].a; }));
+
+  ASSERT(0, strcmp(g43[0], "foo"));
+  ASSERT(0, strcmp(g43[1], "bar"));
 
   printf("OK\n");
   return 0;
