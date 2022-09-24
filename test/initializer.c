@@ -190,6 +190,12 @@ int main() {
   // [109] 允许标量初始化时有多余的大括号
   ASSERT(0, strcmp(g44, "foo"));
 
+  // [110] 允许枚举类型或初始化器有无关的逗号
+  ASSERT(3, ({ int a[]={1,2,3,}; a[2]; }));
+  ASSERT(1, ({ struct {int a,b,c;} x={1,2,3,}; x.a; }));
+  ASSERT(1, ({ union {int a; char b;} x={1,}; x.a; }));
+  ASSERT(2, ({ enum {x,y,z,}; z; }));
+
   printf("OK\n");
   return 0;
 }
