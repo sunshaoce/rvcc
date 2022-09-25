@@ -2073,6 +2073,10 @@ static void structMembers(Token **Rest, Token *Tok, Type *Ty) {
     }
   }
 
+  // 解析灵活数组成员，数组大小设为0
+  if (Cur != &Head && Cur->Ty->Kind == TY_ARRAY && Cur->Ty->ArrayLen < 0)
+    Cur->Ty = arrayOf(Cur->Ty->Base, 0);
+
   *Rest = Tok->Next;
   Ty->Mems = Head.Next;
 }
