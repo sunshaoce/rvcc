@@ -612,10 +612,12 @@ static void emitData(Obj *Prog) {
     if (Var->IsFunction)
       continue;
 
-    printLn("\n  # 数据段标签");
-    printLn("  .data");
+    printLn("\n  # 全局段%s", Var->Name);
+    printLn("  .globl %s", Var->Name);
     // 判断是否有初始值
     if (Var->InitData) {
+      printLn("\n  # 数据段标签");
+      printLn("  .data");
       printLn("%s:", Var->Name);
       Relocation *Rel = Var->Rel;
       int Pos = 0;
@@ -635,13 +637,15 @@ static void emitData(Obj *Prog) {
             printLn("  .byte %d", C);
         }
       }
-    } else {
-      printLn("\n  # 全局段%s", Var->Name);
-      printLn("  .globl %s", Var->Name);
-      printLn("%s:", Var->Name);
-      printLn("  # 全局变量零填充%d位", Var->Ty->Size);
-      printLn("  .zero %d", Var->Ty->Size);
+      continue;
     }
+
+    // bss段未给数据分配空间，只记录数据所需空间的大小
+    printLn("  # 未初始化的全局变量");
+    printLn("  .bss");
+    printLn("%s:", Var->Name);
+    printLn("  # 全局变量零填充%d字节", Var->Ty->Size);
+    printLn("  .zero %d", Var->Ty->Size);
   }
 }
 
