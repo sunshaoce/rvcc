@@ -25,6 +25,7 @@
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Member Member;
+typedef struct Relocation Relocation;
 
 //
 // 字符串
@@ -96,13 +97,24 @@ struct Obj {
   bool IsStatic;     // 是否为文件域内的
 
   // 全局变量
-  char *InitData;
+  char *InitData;  // 用于初始化的数据
+  Relocation *Rel; // 指向其他全局变量的指针
 
   // 函数
   Obj *Params;   // 形参
   Node *Body;    // 函数体
   Obj *Locals;   // 本地变量
   int StackSize; // 栈大小
+};
+
+// 全局变量可被 常量表达式 或者 指向其他全局变量的指针 初始化。
+// 此结构体用于 指向其他全局变量的指针 的情况。
+typedef struct Relocation Relocation;
+struct Relocation {
+  Relocation *Next; // 下一个
+  int Offset;       // 偏移量
+  char *Label;      // 标签名
+  long Addend;      // 加数
 };
 
 // AST的节点种类

@@ -173,6 +173,8 @@ static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
 static int64_t eval(Node *Nd);
+static int64_t eval2(Node *Nd, char **Label);
+static int64_t evalRVal(Node *Nd, char **Label);
 static int64_t constExpr(Token **Rest, Token *Tok);
 static Node *assign(Token **Rest, Token *Tok);
 static Node *conditional(Token **Rest, Token *Tok);
@@ -1008,26 +1010,52 @@ static void writeBuf(char *Buf, uint64_t Val, int Sz) {
 }
 
 // 对全局变量的初始化器写入数据
-static void writeGVarData(Initializer *Init, Type *Ty, char *Buf, int Offset) {
+static Relocation *writeGVarData(Relocation *Cur, Initializer *Init, Type *Ty,
+                                 char *Buf, int Offset) {
   // 处理数组
   if (Ty->Kind == TY_ARRAY) {
     int Sz = Ty->Base->Size;
     for (int I = 0; I < Ty->ArrayLen; I++)
-      writeGVarData(Init->Children[I], Ty->Base, Buf, Offset + Sz * I);
-    return;
+      Cur =
+          writeGVarData(Cur, Init->Children[I], Ty->Base, Buf, Offset + Sz * I);
+    return Cur;
   }
 
   // 处理结构体
   if (Ty->Kind == TY_STRUCT) {
     for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next)
-      writeGVarData(Init->Children[Mem->Idx], Mem->Ty, Buf,
-                    Offset + Mem->Offset);
-    return;
+      Cur = writeGVarData(Cur, Init->Children[Mem->Idx], Mem->Ty, Buf,
+                          Offset + Mem->Offset);
+    return Cur;
   }
 
-  // 计算常量表达式
-  if (Init->Expr)
-    writeBuf(Buf + Offset, eval(Init->Expr), Ty->Size);
+  // 处理联合体
+  if (Ty->Kind == TY_UNION) {
+    return writeGVarData(Cur, Init->Children[0], Ty->Mems->Ty, Buf, Offset);
+  }
+
+  // 这里返回，则会使Buf值为0
+  if (!Init->Expr)
+    return Cur;
+
+  // 预设使用到的 其他全局变量的名称
+  char *Label = NULL;
+  uint64_t Val = eval2(Init->Expr, &Label);
+
+  // 如果不存在Label，说明可以直接计算常量表达式的值
+  if (!Label) {
+    writeBuf(Buf + Offset, Val, Ty->Size);
+    return Cur;
+  }
+
+  // 存在Label，则表示使用了其他全局变量
+  Relocation *Rel = calloc(1, sizeof(Relocation));
+  Rel->Offset = Offset;
+  Rel->Label = Label;
+  Rel->Addend = Val;
+  // 压入链表顶部
+  Cur->Next = Rel;
+  return Cur->Next;
 }
 
 // 全局变量在编译时需计算出初始化的值，然后写入.data段。
@@ -1036,9 +1064,14 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
   Initializer *Init = initializer(Rest, Tok, Var->Ty, &Var->Ty);
 
   // 写入计算过后的数据
+  // 新建一个重定向的链表
+  Relocation Head = {};
   char *Buf = calloc(1, Var->Ty->Size);
-  writeGVarData(Init, Var->Ty, Buf, 0);
+  writeGVarData(&Head, Init, Var->Ty, Buf, 0);
+  // 全局变量的数据
   Var->InitData = Buf;
+  // Head为空，所以返回Head.Next的数据
+  Var->Rel = Head.Next;
 }
 
 // 判断是否为类型名
@@ -1362,15 +1395,18 @@ static Node *expr(Token **Rest, Token *Tok) {
   return Nd;
 }
 
+static int64_t eval(Node *Nd) { return eval2(Nd, NULL); }
+
 // 计算给定节点的常量表达式计算
-static int64_t eval(Node *Nd) {
+// 常量表达式可以是数字或者是 ptr±n，ptr是指向全局变量的指针，n是偏移量。
+static int64_t eval2(Node *Nd, char **Label) {
   addType(Nd);
 
   switch (Nd->Kind) {
   case ND_ADD:
-    return eval(Nd->LHS) + eval(Nd->RHS);
+    return eval2(Nd->LHS, Label) + eval(Nd->RHS);
   case ND_SUB:
-    return eval(Nd->LHS) - eval(Nd->RHS);
+    return eval2(Nd->LHS, Label) - eval(Nd->RHS);
   case ND_MUL:
     return eval(Nd->LHS) * eval(Nd->RHS);
   case ND_DIV:
@@ -1398,9 +1434,9 @@ static int64_t eval(Node *Nd) {
   case ND_LE:
     return eval(Nd->LHS) <= eval(Nd->RHS);
   case ND_COND:
-    return eval(Nd->Cond) ? eval(Nd->Then) : eval(Nd->Els);
+    return eval(Nd->Cond) ? eval2(Nd->Then, Label) : eval2(Nd->Els, Label);
   case ND_COMMA:
-    return eval(Nd->RHS);
+    return eval2(Nd->RHS, Label);
   case ND_NOT:
     return !eval(Nd->LHS);
   case ND_BITNOT:
@@ -1409,18 +1445,40 @@ static int64_t eval(Node *Nd) {
     return eval(Nd->LHS) && eval(Nd->RHS);
   case ND_LOGOR:
     return eval(Nd->LHS) || eval(Nd->RHS);
-  case ND_CAST:
+  case ND_CAST: {
+    int64_t Val = eval2(Nd->LHS, Label);
     if (isInteger(Nd->Ty)) {
       switch (Nd->Ty->Size) {
       case 1:
-        return (uint8_t)eval(Nd->LHS);
+        return (uint8_t)Val;
       case 2:
-        return (uint16_t)eval(Nd->LHS);
+        return (uint16_t)Val;
       case 4:
-        return (uint32_t)eval(Nd->LHS);
+        return (uint32_t)Val;
       }
     }
-    return eval(Nd->LHS);
+    return Val;
+  }
+  case ND_ADDR:
+    return evalRVal(Nd->LHS, Label);
+  case ND_MEMBER:
+    // 未开辟Label的地址，则表明不是表达式常量
+    if (!Label)
+      errorTok(Nd->Tok, "not a compile-time constant");
+    // 不能为数组
+    if (Nd->Ty->Kind != TY_ARRAY)
+      errorTok(Nd->Tok, "invalid initializer");
+    // 返回左部的值（并解析Label），加上成员变量的偏移量
+    return evalRVal(Nd->LHS, Label) + Nd->Mem->Offset;
+  case ND_VAR:
+    // 未开辟Label的地址，则表明不是表达式常量
+    if (!Label)
+      errorTok(Nd->Tok, "not a compile-time constant");
+    // 不能为数组或者函数
+    if (Nd->Var->Ty->Kind != TY_ARRAY && Nd->Var->Ty->Kind != TY_FUNC)
+      errorTok(Nd->Tok, "invalid initializer");
+    *Label = Nd->Var->Name;
+    return 0;
   case ND_NUM:
     return Nd->Val;
   default:
@@ -1428,6 +1486,29 @@ static int64_t eval(Node *Nd) {
   }
 
   errorTok(Nd->Tok, "not a compile-time constant");
+  return -1;
+}
+
+// 计算重定位变量
+static int64_t evalRVal(Node *Nd, char **Label) {
+  switch (Nd->Kind) {
+  case ND_VAR:
+    // 局部变量不能参与全局变量的初始化
+    if (Nd->Var->IsLocal)
+      errorTok(Nd->Tok, "not a compile-time constant");
+    *Label = Nd->Var->Name;
+    return 0;
+  case ND_DEREF:
+    // 直接进入到解引用的地址
+    return eval2(Nd->LHS, Label);
+  case ND_MEMBER:
+    // 加上成员变量的偏移量
+    return evalRVal(Nd->LHS, Label) + Nd->Mem->Offset;
+  default:
+    break;
+  }
+
+  errorTok(Nd->Tok, "invalid initializer");
   return -1;
 }
 
