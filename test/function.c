@@ -56,6 +56,9 @@ int div_long(long a, long b) {
 _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
+// [75] 支持文件域内函数
+static int static_fn() { return 3; }
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -88,6 +91,9 @@ int main() {
   ASSERT(0, bool_fn_sub(-3));
   ASSERT(1, bool_fn_add(0));
   ASSERT(1, bool_fn_sub(0));
+
+  // [75] 支持文件域内函数
+  ASSERT(3, static_fn());
 
   printf("OK\n");
   return 0;

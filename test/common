@@ -9,3 +9,6 @@ void assert(int expected, int actual, char *code) {
     exit(1);
   }
 }
+
+// [75] 支持文件域内函数
+static int static_fn() { return 5; }
