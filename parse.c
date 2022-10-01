@@ -118,7 +118,7 @@ static Node *CurrentSwitch;
 // structIntializer2 = initializer ("," initializer)* ","?
 
 // unionInitializer = "{" initializer "}"
-// stmt = "return" expr ";"
+// stmt = "return" expr? ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
 //        | "case" constExpr ":" stmt
@@ -1277,7 +1277,7 @@ static bool isTypename(Token *Tok) {
 }
 
 // 解析语句
-// stmt = "return" expr ";"
+// stmt = "return" expr? ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
 //        | "case" constExpr ":" stmt
@@ -1294,6 +1294,11 @@ static Node *stmt(Token **Rest, Token *Tok) {
   // "return" expr ";"
   if (equal(Tok, "return")) {
     Node *Nd = newNode(ND_RETURN, Tok);
+
+    // 空返回语句
+    if (consume(Rest, Tok->Next, ";"))
+      return Nd;
+
     Node *Exp = expr(&Tok, Tok->Next);
     *Rest = skip(Tok, ";");
 

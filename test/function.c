@@ -70,6 +70,9 @@ int counter() {
   return i++ + j++;
 }
 
+// [122] 支持空返回语句
+void ret_none() { return; }
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -113,6 +116,9 @@ int main() {
   ASSERT(2, counter());
   ASSERT(4, counter());
   ASSERT(6, counter());
+
+  // [122] 支持空返回语句
+  ret_none();
 
   printf("OK\n");
   return 0;
