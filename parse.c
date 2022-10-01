@@ -155,7 +155,8 @@ static Node *CurrentSwitch;
 // structDecl = structUnionDecl
 // unionDecl = structUnionDecl
 // structUnionDecl = ident? ("{" structMembers)?
-// postfix = primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
+// postfix = "(" typeName ")" "{" initializerList "}"
+//         | primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" "(" typeName ")"
@@ -2106,6 +2107,11 @@ static Node *cast(Token **Rest, Token *Tok) {
     Token *Start = Tok;
     Type *Ty = typename(&Tok, Tok->Next);
     Tok = skip(Tok, ")");
+
+    // 复合字面量
+    if (equal(Tok, "{"))
+      return unary(Rest, Start);
+
     // 解析嵌套的类型转换
     Node *Nd = newCast(cast(Rest, Tok), Ty);
     Nd->Tok = Start;
@@ -2315,8 +2321,28 @@ static Node *newIncDec(Node *Nd, Token *Tok, int Addend) {
                  Nd->Ty);
 }
 
-// postfix = primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
+// postfix = "(" typeName ")" "{" initializerList "}"
+//         | primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
 static Node *postfix(Token **Rest, Token *Tok) {
+  // "(" typeName ")" "{" initializerList "}"
+  if (equal(Tok, "(") && isTypename(Tok->Next)) {
+    // 复合字面量
+    Token *Start = Tok;
+    Type *Ty = typename(&Tok, Tok->Next);
+    Tok = skip(Tok, ")");
+
+    if (Scp->Next == NULL) {
+      Obj *Var = newAnonGVar(Ty);
+      GVarInitializer(Rest, Tok, Var);
+      return newVarNode(Var, Start);
+    }
+
+    Obj *Var = newLVar("", Ty);
+    Node *LHS = LVarInitializer(Rest, Tok, Var);
+    Node *RHS = newVarNode(Var, Tok);
+    return newBinary(ND_COMMA, LHS, RHS, Start);
+  }
+
   // primary
   Node *Nd = primary(&Tok, Tok);
 
