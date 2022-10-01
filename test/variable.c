@@ -2,6 +2,9 @@
 
 int g1, g2[4];
 
+// [123] 支持静态全局变量
+static int g3 = 3;
+
 int main() {
   // [10] 支持单字母变量
   ASSERT(3, ({ int a; a=3; a; }));
@@ -75,6 +78,9 @@ int main() {
 
   // [61] 支持void类型
   { void *x; }
+
+  // [123] 支持静态全局变量
+  ASSERT(3, g3);
 
   printf("OK\n");
   return 0;

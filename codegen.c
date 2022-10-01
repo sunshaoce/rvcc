@@ -628,8 +628,14 @@ static void emitData(Obj *Prog) {
     if (Var->IsFunction || !Var->IsDefinition)
       continue;
 
-    printLn("\n  # 全局段%s", Var->Name);
-    printLn("  .globl %s", Var->Name);
+    if (Var->IsStatic) {
+      printLn("\n  # static全局变量%s", Var->Name);
+      printLn("  .local %s", Var->Name);
+    } else {
+      printLn("\n  # 全局变量%s", Var->Name);
+      printLn("  .globl %s", Var->Name);
+    }
+
     printLn("  # 对齐全局变量");
     if (!Var->Align)
       error("Align can not be 0!");
