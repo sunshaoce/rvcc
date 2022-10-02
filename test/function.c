@@ -79,6 +79,9 @@ _Bool false_fn();
 char char_fn();
 short short_fn();
 
+// [127] 允许调用可变参数函数
+int add_all(int n, ...);
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -131,6 +134,12 @@ int main() {
   ASSERT(0, false_fn());
   ASSERT(3, char_fn());
   ASSERT(5, short_fn());
+
+  // [127] 允许调用可变参数函数
+  ASSERT(6, add_all(3,1,2,3));
+  ASSERT(5, add_all(4,1,2,3,-1));
+
+  ASSERT(0, ({ char buf[100]; sprintf(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));
 
   printf("OK\n");
   return 0;

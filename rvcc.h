@@ -253,9 +253,10 @@ struct Type {
   bool IsFlexible; // 是否为灵活的
 
   // 函数类型
-  Type *ReturnTy; // 函数返回的类型
-  Type *Params;   // 形参
-  Type *Next;     // 下一类型
+  Type *ReturnTy;  // 函数返回的类型
+  Type *Params;    // 形参
+  bool IsVariadic; // 是否为可变参数
+  Type *Next;      // 下一类型
 };
 
 // 结构体成员
