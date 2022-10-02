@@ -620,6 +620,10 @@ static Type *funcParams(Token **Rest, Token *Tok, Type *Ty) {
     Cur = Cur->Next;
   }
 
+  // 设置空参函数调用为可变的
+  if (Cur == &Head)
+    IsVariadic = true;
+
   // 封装一个函数节点
   Ty = funcType(Ty);
   // 传递形参
