@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 //
 // 共用头文件，定义了多个文件间共同使用的函数和数据
