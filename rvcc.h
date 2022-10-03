@@ -157,6 +157,8 @@ struct Node {
   int64_t Val; // 存储ND_NUM种类的值
 };
 
+// 类型转换，将表达式的值转换为另一种类型
+Node *newCast(Node *Expr, Type *Ty);
 // 语法解析入口函数
 Obj *parse(Token *Tok);
 

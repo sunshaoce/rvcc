@@ -166,6 +166,14 @@ static Node *newNum(int64_t Val, Token *Tok) {
   return Nd;
 }
 
+// 新建一个长整型节点
+static Node *newLong(int64_t Val, Token *Tok) {
+  Node *Nd = newNode(ND_NUM, Tok);
+  Nd->Val = Val;
+  Nd->Ty = TyLong;
+  return Nd;
+}
+
 // 新变量
 static Node *newVarNode(Obj *Var, Token *Tok) {
   Node *Nd = newNode(ND_VAR, Tok);
@@ -174,7 +182,7 @@ static Node *newVarNode(Obj *Var, Token *Tok) {
 }
 
 // 新转换
-static Node *newCast(Node *Expr, Type *Ty) {
+Node *newCast(Node *Expr, Type *Ty) {
   addType(Expr);
 
   Node *Nd = calloc(1, sizeof(Node));
@@ -795,7 +803,8 @@ static Node *newAdd(Node *LHS, Node *RHS, Token *Tok) {
 
   // ptr + num
   // 指针加法，ptr+1，1不是1个字节而是1个元素的空间，所以需要×Size操作
-  RHS = newBinary(ND_MUL, RHS, newNum(LHS->Ty->Base->Size, Tok), Tok);
+  // 指针用long类型存储
+  RHS = newBinary(ND_MUL, RHS, newLong(LHS->Ty->Base->Size, Tok), Tok);
   return newBinary(ND_ADD, LHS, RHS, Tok);
 }
 
@@ -811,7 +820,8 @@ static Node *newSub(Node *LHS, Node *RHS, Token *Tok) {
 
   // ptr - num
   if (LHS->Ty->Base && isInteger(RHS->Ty)) {
-    RHS = newBinary(ND_MUL, RHS, newNum(LHS->Ty->Base->Size, Tok), Tok);
+    // 指针用long类型存储
+    RHS = newBinary(ND_MUL, RHS, newLong(LHS->Ty->Base->Size, Tok), Tok);
     addType(RHS);
     Node *Nd = newBinary(ND_SUB, LHS, RHS, Tok);
     // 节点类型为指针

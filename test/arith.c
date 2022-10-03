@@ -36,6 +36,9 @@ int main() {
   ASSERT(1, 1>=1);
   ASSERT(0, 1>=2);
 
+  // [68] 实现常规算术转换
+  ASSERT(0, 1073741824 * 100 / 100);
+
   printf("OK\n");
   return 0;
 }
