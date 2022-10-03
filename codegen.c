@@ -365,6 +365,27 @@ static void genExpr(Node *Nd) {
       printLn("  addi sp, sp, 8");
     }
 
+    // 清除寄存器中高位无关的数据
+    switch (Nd->Ty->Kind) {
+    case TY_BOOL:
+      printLn("  # 清除bool类型的高位");
+      printLn("  slli a0, a0, 63");
+      printLn("  srli a0, a0, 63");
+      return;
+    case TY_CHAR:
+      printLn("  # 清除char类型的高位");
+      printLn("  slli a0, a0, 56");
+      printLn("  srai a0, a0, 56");
+      return;
+    case TY_SHORT:
+      printLn("  # 清除short类型的高位");
+      printLn("  slli a0, a0, 48");
+      printLn("  srai a0, a0, 48");
+      return;
+    default:
+      break;
+    }
+
     return;
   }
   default:
