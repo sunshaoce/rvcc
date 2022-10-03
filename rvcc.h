@@ -249,6 +249,7 @@ struct Type {
 
   // 结构体
   Member *Mems;
+  bool IsFlexible; // 是否为灵活的
 
   // 函数类型
   Type *ReturnTy; // 函数返回的类型
