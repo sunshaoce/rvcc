@@ -145,6 +145,9 @@ int main() {
   ASSERT(15, (char *)0xffffffffffffffff - (char *)0xfffffffffffffff0);
   ASSERT(-15, (char *)0xfffffffffffffff0 - (char *)0xffffffffffffffff);
 
+  // [134] 将指针作为无符号类型进行比较
+  ASSERT(1, (void *)0xffffffffffffffff > (void *)0);
+
   printf("OK\n");
   return 0;
 }

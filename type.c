@@ -40,6 +40,8 @@ Type *copyType(Type *Ty) {
 Type *pointerTo(Type *Base) {
   Type *Ty = newType(TY_PTR, 8, 8);
   Ty->Base = Base;
+  // 将指针作为无符号类型进行比较
+  Ty->IsUnsigned = true;
   return Ty;
 }
 
