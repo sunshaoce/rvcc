@@ -102,7 +102,7 @@ static Node *CurrentSwitch;
 // declarator = pointers ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
 // pointers = ("*" ("const" | "volatile" | "restrict")*)*
 // typeSuffix = "(" funcParams | "[" arrayDimensions | ε
-// arrayDimensions = constExpr? "]" typeSuffix
+// arrayDimensions = ("static" | "restrict")* constExpr? "]" typeSuffix
 // funcParams = ("void" | param ("," param)* ("," "...")?)? ")"
 // param = declspec declarator
 
@@ -690,8 +690,12 @@ static Type *funcParams(Token **Rest, Token *Tok, Type *Ty) {
 }
 
 // 数组维数
-// arrayDimensions = constExpr? "]" typeSuffix
+// arrayDimensions = ("static" | "restrict")* constExpr? "]" typeSuffix
 static Type *arrayDimensions(Token **Rest, Token *Tok, Type *Ty) {
+  // ("static" | "restrict")*
+  while (equal(Tok, "static") || equal(Tok, "restrict"))
+    Tok = Tok->Next;
+
   // "]" 无数组维数的 "[]"
   if (equal(Tok, "]")) {
     Ty = typeSuffix(Rest, Tok->Next, Ty);
