@@ -136,6 +136,15 @@ int main() {
 
   1 ? -2 : (void)-1;
 
+  // [133] 在一些表达式中用long或ulong替代int
+  ASSERT(20, ({ int x; int *p=&x; p+20-p; }));
+  ASSERT(1, ({ int x; int *p=&x; p+20-p>0; }));
+  ASSERT(-20, ({ int x; int *p=&x; p-20-p; }));
+  ASSERT(1, ({ int x; int *p=&x; p-20-p<0; }));
+
+  ASSERT(15, (char *)0xffffffffffffffff - (char *)0xfffffffffffffff0);
+  ASSERT(-15, (char *)0xfffffffffffffff0 - (char *)0xffffffffffffffff);
+
   printf("OK\n");
   return 0;
 }
