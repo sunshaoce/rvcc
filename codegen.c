@@ -63,7 +63,8 @@ static void genAddr(Node *Nd) {
     if (Nd->Var->IsLocal) { // 偏移量是相对于fp的
       printLn("  # 获取局部变量%s的栈内地址为%d(fp)", Nd->Var->Name,
               Nd->Var->Offset);
-      printLn("  addi a0, fp, %d", Nd->Var->Offset);
+      printLn("  li t0, %d", Nd->Var->Offset);
+      printLn("  add a0, fp, t0");
     } else {
       printLn("  # 获取全局变量%s的地址", Nd->Var->Name);
       printLn("  la a0, %s", Nd->Var->Name);
@@ -295,8 +296,11 @@ static void genExpr(Node *Nd) {
     printLn("  # 对%s的内存%d(fp)清零%d位", Nd->Var->Name, Nd->Var->Offset,
             Nd->Var->Ty->Size);
     // 对栈内变量所占用的每个字节都进行清零
-    for (int I = 0; I < Nd->Var->Ty->Size; I++)
-      printLn("  sb zero, %d(fp)", Nd->Var->Offset + I);
+    for (int I = 0; I < Nd->Var->Ty->Size; I++) {
+      printLn("  li t0, %d", Nd->Var->Offset + I);
+      printLn("  add t0, fp, t0");
+      printLn("  sb zero, 0(t0)");
+    }
     return;
   }
   // 条件运算符
@@ -794,18 +798,20 @@ static void emitData(Obj *Prog) {
 // 将整形寄存器的值存入栈中
 static void storeGeneral(int Reg, int Offset, int Size) {
   printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
+  printLn("  li t0, %d", Offset);
+  printLn("  add t0, fp, t0");
   switch (Size) {
   case 1:
-    printLn("  sb %s, %d(fp)", ArgReg[Reg], Offset);
+    printLn("  sb %s, 0(t0)", ArgReg[Reg]);
     return;
   case 2:
-    printLn("  sh %s, %d(fp)", ArgReg[Reg], Offset);
+    printLn("  sh %s, 0(t0)", ArgReg[Reg]);
     return;
   case 4:
-    printLn("  sw %s, %d(fp)", ArgReg[Reg], Offset);
+    printLn("  sw %s, 0(t0)", ArgReg[Reg]);
     return;
   case 8:
-    printLn("  sd %s, %d(fp)", ArgReg[Reg], Offset);
+    printLn("  sd %s, 0(t0)", ArgReg[Reg]);
     return;
   }
   unreachable();
@@ -858,7 +864,8 @@ void emitText(Obj *Prog) {
 
     // 偏移量为实际变量所用的栈大小
     printLn("  # sp腾出StackSize大小的栈空间");
-    printLn("  addi sp, sp, -%d", Fn->StackSize);
+    printLn("  li t0, -%d", Fn->StackSize);
+    printLn("  add sp, sp, t0");
 
     int I = 0;
     // 正常传递的形参
