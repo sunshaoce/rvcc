@@ -123,6 +123,7 @@ typedef enum {
   ND_STMT_EXPR, // 语句表达式
   ND_VAR,       // 变量
   ND_NUM,       // 数字
+  ND_CAST,      // 类型转换
 } NodeKind;
 
 // AST中二叉树节点
