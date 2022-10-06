@@ -183,6 +183,26 @@ static void store(Type *Ty) {
     printLn("  sd a0, 0(a1)");
 };
 
+// 与0进行比较，不等于0则置1
+static void notZero(Type *Ty) {
+  switch (Ty->Kind) {
+  case TY_FLOAT:
+    printLn("  # 判断fa1是否不为0，为0置0，非0置1");
+    printLn("  fmv.s.x fa1, zero");
+    printLn("  feq.s a0, fa0, fa1");
+    printLn("  xori a0, a0, 1");
+    return;
+  case TY_DOUBLE:
+    printLn("  # 判断fa1是否不为0，为0置0，非0置1");
+    printLn("  fmv.d.x fa1, zero");
+    printLn("  feq.d a0, fa0, fa1");
+    printLn("  xori a0, a0, 1");
+    return;
+  default:
+    return;
+  }
+}
+
 // 类型枚举
 enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
 
@@ -357,6 +377,7 @@ static void cast(Type *From, Type *To) {
     return;
 
   if (To->Kind == TY_BOOL) {
+    notZero(From);
     printLn("  # 转为bool类型：为0置0，非0置1");
     printLn("  snez a0, a0");
     return;
@@ -488,6 +509,7 @@ static void genExpr(Node *Nd) {
     int C = count();
     printLn("\n# =====条件运算符%d===========", C);
     genExpr(Nd->Cond);
+    notZero(Nd->Cond->Ty);
     printLn("  # 条件判断，为0则跳转");
     printLn("  beqz a0, .L.else.%d", C);
     genExpr(Nd->Then);
@@ -501,6 +523,7 @@ static void genExpr(Node *Nd) {
   // 非运算
   case ND_NOT:
     genExpr(Nd->LHS);
+    notZero(Nd->LHS->Ty);
     printLn("  # 非运算");
     // a0=0则置1，否则为0
     printLn("  seqz a0, a0");
@@ -511,9 +534,11 @@ static void genExpr(Node *Nd) {
     printLn("\n# =====逻辑与%d===============", C);
     genExpr(Nd->LHS);
     // 判断是否为短路操作
+    notZero(Nd->LHS->Ty);
     printLn("  # 左部短路操作判断，为0则跳转");
     printLn("  beqz a0, .L.false.%d", C);
     genExpr(Nd->RHS);
+    notZero(Nd->RHS->Ty);
     printLn("  # 右部判断，为0则跳转");
     printLn("  beqz a0, .L.false.%d", C);
     printLn("  li a0, 1");
@@ -528,10 +553,12 @@ static void genExpr(Node *Nd) {
     int C = count();
     printLn("\n# =====逻辑或%d===============", C);
     genExpr(Nd->LHS);
+    notZero(Nd->LHS->Ty);
     // 判断是否为短路操作
     printLn("  # 左部短路操作判断，不为0则跳转");
     printLn("  bnez a0, .L.true.%d", C);
     genExpr(Nd->RHS);
+    notZero(Nd->RHS->Ty);
     printLn("  # 右部判断，不为0则跳转");
     printLn("  bnez a0, .L.true.%d", C);
     printLn("  li a0, 0");
@@ -794,6 +821,7 @@ static void genStmt(Node *Nd) {
     // 生成条件内语句
     printLn("\n# Cond表达式%d", C);
     genExpr(Nd->Cond);
+    notZero(Nd->Cond->Ty);
     // 判断结果是否为0，为0则跳转到else标签
     printLn("  # 若a0为0，则跳转到分支%d的.L.else.%d段", C, C);
     printLn("  beqz a0, .L.else.%d", C);
@@ -833,6 +861,7 @@ static void genStmt(Node *Nd) {
     if (Nd->Cond) {
       // 生成条件循环语句
       genExpr(Nd->Cond);
+      notZero(Nd->Cond->Ty);
       // 判断结果是否为0，为0则跳转到结束部分
       printLn("  # 若a0为0，则跳转到循环%d的%s段", C, Nd->BrkLabel);
       printLn("  beqz a0, %s", Nd->BrkLabel);
@@ -870,6 +899,7 @@ static void genStmt(Node *Nd) {
     printLn("%s:", Nd->ContLabel);
     genExpr(Nd->Cond);
 
+    notZero(Nd->Cond->Ty);
     printLn("  # 跳转到循环%d的.L.begin.%d段", C, C);
     printLn("  bnez a0, .L.begin.%d", C);
 
