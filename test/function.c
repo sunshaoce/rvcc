@@ -52,6 +52,10 @@ int div_long(long a, long b) {
   return a / b;
 }
 
+// [72] 支持_Bool类型
+_Bool bool_fn_add(_Bool x) { return x + 1; }
+_Bool bool_fn_sub(_Bool x) { return x - 1; }
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -76,6 +80,14 @@ int main() {
 
   // {71] 处理函数实参类型转换
   ASSERT(-5, div_long(-10, 2));
+
+  // [72] 支持_Bool类型
+  ASSERT(1, bool_fn_add(3));
+  ASSERT(0, bool_fn_sub(3));
+  ASSERT(1, bool_fn_add(-3));
+  ASSERT(0, bool_fn_sub(-3));
+  ASSERT(1, bool_fn_add(0));
+  ASSERT(1, bool_fn_sub(0));
 
   printf("OK\n");
   return 0;

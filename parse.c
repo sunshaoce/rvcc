@@ -44,7 +44,7 @@ static Obj *CurrentFn;
 
 // program = (typedef | functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
-// declspec = ("void" | "char" | "short" | "int" | "long"
+// declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
 //             | "typedef"
 //             | structDecl | unionDecl | typedefName)+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
@@ -283,7 +283,7 @@ static void pushTagScope(Token *Tok, Type *Ty) {
   Scp->Tags = S;
 }
 
-// declspec = ("void" | "char" | "short" | "int" | "long"
+// declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
 //             | "typedef"
 //             | structDecl | unionDecl | typedefName)+
 // declarator specifier
@@ -293,11 +293,12 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
   // 可知long int和int long是等价的。
   enum {
     VOID = 1 << 0,
-    CHAR = 1 << 2,
-    SHORT = 1 << 4,
-    INT = 1 << 6,
-    LONG = 1 << 8,
-    OTHER = 1 << 10,
+    BOOL = 1 << 2,
+    CHAR = 1 << 4,
+    SHORT = 1 << 6,
+    INT = 1 << 8,
+    LONG = 1 << 10,
+    OTHER = 1 << 12,
   };
 
   Type *Ty = TyInt;
@@ -338,6 +339,8 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
     // 每一步的Counter都需要有合法值
     if (equal(Tok, "void"))
       Counter += VOID;
+    else if (equal(Tok, "_Bool"))
+      Counter += BOOL;
     else if (equal(Tok, "char"))
       Counter += CHAR;
     else if (equal(Tok, "short"))
@@ -353,6 +356,9 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
     switch (Counter) {
     case VOID:
       Ty = TyVoid;
+      break;
+    case BOOL:
+      Ty = TyBool;
       break;
     case CHAR:
       Ty = TyChar;
@@ -535,7 +541,8 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy) {
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
   static char *Kw[] = {
-      "void", "char", "short", "int", "long", "struct", "union", "typedef",
+      "void", "_Bool",  "char",  "short",   "int",
+      "long", "struct", "union", "typedef",
   };
 
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {

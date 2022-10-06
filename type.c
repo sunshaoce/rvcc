@@ -2,6 +2,7 @@
 
 // (Type){...}构造了一个复合字面量，相当于Type的匿名变量。
 Type *TyVoid = &(Type){TY_VOID, 1, 1};
+Type *TyBool = &(Type){TY_BOOL, 1, 1};
 
 Type *TyChar = &(Type){TY_CHAR, 1, 1};
 Type *TyShort = &(Type){TY_SHORT, 2, 2};
@@ -19,7 +20,8 @@ static Type *newType(TypeKind Kind, int Size, int Align) {
 // 判断Type是否为整数
 bool isInteger(Type *Ty) {
   TypeKind K = Ty->Kind;
-  return K == TY_CHAR || K == TY_SHORT || K == TY_INT || K == TY_LONG;
+  return K == TY_BOOL || K == TY_CHAR || K == TY_SHORT || K == TY_INT ||
+         K == TY_LONG;
 }
 
 // 复制类型
