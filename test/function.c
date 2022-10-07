@@ -200,6 +200,9 @@ int main() {
   // [146] 为float实现默认实参提升
   ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f", (float)3.5); strcmp(buf, "3.5"); }));
 
+  // [147] 支持可变参数函数使用浮点数实参
+  ASSERT(0, ({ char buf[100]; fmt(buf, "%.1f", (float)3.5); strcmp(buf, "3.5"); }));
+
   printf("OK\n");
   return 0;
 }
