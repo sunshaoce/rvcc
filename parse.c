@@ -633,6 +633,7 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
       Ty = TyFloat;
       break;
     case DOUBLE:
+    case LONG + DOUBLE:
       Ty = TyDouble;
       break;
     default:
