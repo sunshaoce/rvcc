@@ -2586,6 +2586,9 @@ static Node *funCall(Token **Rest, Token *Tok) {
       Arg = newCast(Arg, ParamTy);
       // 前进到下一个形参类型
       ParamTy = ParamTy->Next;
+    } else if (Arg->Ty->Kind == TY_FLOAT) {
+      // 若无形参类型，浮点数会被提升为double
+      Arg = newCast(Arg, TyDouble);
     }
     // 对参数进行存储
     Cur->Next = Arg;
