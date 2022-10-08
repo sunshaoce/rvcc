@@ -1,7 +1,7 @@
 #include "rvcc.h"
 
 // (Type){...}构造了一个复合字面量，相当于Type的匿名变量。
-Type *TyInt = &(Type){TY_INT};
+Type *TyInt = &(Type){TY_INT, 8};
 
 // 判断Type是否为int类型
 bool isInteger(Type *Ty) { return Ty->Kind == TY_INT; }
@@ -17,6 +17,7 @@ Type *copyType(Type *Ty) {
 Type *pointerTo(Type *Base) {
   Type *Ty = calloc(1, sizeof(Type));
   Ty->Kind = TY_PTR;
+  Ty->Size = 8;
   Ty->Base = Base;
   return Ty;
 }
@@ -26,6 +27,17 @@ Type *funcType(Type *ReturnTy) {
   Type *Ty = calloc(1, sizeof(Type));
   Ty->Kind = TY_FUNC;
   Ty->ReturnTy = ReturnTy;
+  return Ty;
+}
+
+// 构造数组类型, 传入 数组基类, 元素个数
+Type *arrayOf(Type *Base, int Len) {
+  Type *Ty = calloc(1, sizeof(Type));
+  Ty->Kind = TY_ARRAY;
+  // 数组大小为所有元素大小之和
+  Ty->Size = Base->Size * Len;
+  Ty->Base = Base;
+  Ty->ArrayLen = Len;
   return Ty;
 }
 
@@ -58,7 +70,13 @@ void addType(Node *Nd) {
   case ND_MUL:
   case ND_DIV:
   case ND_NEG:
+    Nd->Ty = Nd->LHS->Ty;
+    return;
+    // 将节点类型设为 节点左部的类型
+    // 左部不能是数组节点
   case ND_ASSIGN:
+    if (Nd->LHS->Ty->Kind == TY_ARRAY)
+      errorTok(Nd->LHS->Tok, "not an lvalue");
     Nd->Ty = Nd->LHS->Ty;
     return;
   // 将节点类型设为 int
@@ -75,12 +93,19 @@ void addType(Node *Nd) {
     Nd->Ty = Nd->Var->Ty;
     return;
   // 将节点类型设为 指针，并指向左部的类型
-  case ND_ADDR:
-    Nd->Ty = pointerTo(Nd->LHS->Ty);
+  case ND_ADDR: {
+    Type *Ty = Nd->LHS->Ty;
+    // 左部如果是数组, 则为指向数组基类的指针
+    if (Ty->Kind == TY_ARRAY)
+      Nd->Ty = pointerTo(Ty->Base);
+    else
+      Nd->Ty = pointerTo(Ty);
     return;
+  }
   // 节点类型：如果解引用指向的是指针，则为指针指向的类型；否则报错
   case ND_DEREF:
-    if (Nd->LHS->Ty->Kind != TY_PTR)
+    // 如果不存在基类, 则无法解引用
+    if (!Nd->LHS->Ty->Base)
       errorTok(Nd->Tok, "invalid pointer dereference");
     Nd->Ty = Nd->LHS->Ty->Base;
     return;
