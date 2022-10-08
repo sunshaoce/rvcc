@@ -83,6 +83,12 @@ static Type *getCommonType(Type *Ty1, Type *Ty2) {
   if (Ty1->Base)
     return pointerTo(Ty1->Base);
 
+  // 为函数指针进行常规算术转换
+  if (Ty1->Kind == TY_FUNC)
+    return pointerTo(Ty1);
+  if (Ty2->Kind == TY_FUNC)
+    return pointerTo(Ty2);
+
   // 处理浮点类型
   // 优先使用double类型
   if (Ty1->Kind == TY_DOUBLE || Ty2->Kind == TY_DOUBLE)
