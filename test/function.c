@@ -1,6 +1,6 @@
 #include "test.h"
 
-int ret3() {
+int ret3(void) { // [114] 支持void作为形参
   return 3;
   return 5;
 }
@@ -44,7 +44,7 @@ int sub_short(short a, short b, short c) {
 // [70] 处理返回类型转换
 int g1;
 
-int *g1_ptr() { return &g1; }
+int *g1_ptr(void) { return &g1; } // [114] 支持void作为形参
 char int_to_char(int x) { return x; }
 
 // {71] 处理函数实参类型转换
@@ -57,7 +57,8 @@ _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
 // [75] 支持文件域内函数
-static int static_fn() { return 3; }
+// [114] 支持void作为形参
+static int static_fn(void) { return 3; }
 
 // [87] 在函数形参中退化数组为指针
 int param_decay(int x[]) { return x[0]; }

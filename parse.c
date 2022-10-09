@@ -96,7 +96,7 @@ static Node *CurrentSwitch;
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
 // typeSuffix = "(" funcParams | "[" arrayDimensions | ε
 // arrayDimensions = constExpr? "]" typeSuffix
-// funcParams = (param ("," param)*)? ")"
+// funcParams = ("void" | param ("," param)*)? ")"
 // param = declspec declarator
 
 // compoundStmt = (typedef | declaration | stmt)* "}"
@@ -542,9 +542,15 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
   return Ty;
 }
 
-// funcParams = (param ("," param)*)? ")"
+// funcParams = ("void" | param ("," param)*)? ")"
 // param = declspec declarator
 static Type *funcParams(Token **Rest, Token *Tok, Type *Ty) {
+  // "void"
+  if (equal(Tok, "void") && equal(Tok->Next, ")")) {
+    *Rest = Tok->Next->Next;
+    return funcType(Ty);
+  }
+
   Type Head = {};
   Type *Cur = &Head;
 
