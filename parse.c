@@ -205,6 +205,9 @@ static Node *unary(Token **Rest, Token *Tok);
 static Node *postfix(Token **Rest, Token *Tok);
 static Node *primary(Token **Rest, Token *Tok);
 static Token *parseTypedef(Token *Tok, Type *BaseTy);
+static bool isFunction(Token *Tok);
+static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr);
+static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr);
 
 // 进入域
 static void enterScope(void) {
@@ -1489,6 +1492,18 @@ static Node *compoundStmt(Token **Rest, Token *Tok) {
       // 解析typedef的语句
       if (Attr.IsTypedef) {
         Tok = parseTypedef(Tok, BaseTy);
+        continue;
+      }
+
+      // 解析函数
+      if (isFunction(Tok)) {
+        Tok = function(Tok, BaseTy, &Attr);
+        continue;
+      }
+
+      // 解析外部全局变量
+      if (Attr.IsExtern) {
+        Tok = globalVariable(Tok, BaseTy, &Attr);
         continue;
       }
 

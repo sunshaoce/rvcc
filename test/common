@@ -16,3 +16,8 @@ static int static_fn() { return 5; }
 // [116] 支持extern
 int ext1 = 5;
 int *ext2 = &ext1;
+
+// [117] 处理块中的extern声明
+int ext3 = 7;
+int ext_fn1(int x) { return x; }
+int ext_fn2(int x) { return x; }
