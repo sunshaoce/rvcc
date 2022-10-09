@@ -12,3 +12,7 @@ void assert(int expected, int actual, char *code) {
 
 // [75] 支持文件域内函数
 static int static_fn() { return 5; }
+
+// [116] 支持extern
+int ext1 = 5;
+int *ext2 = &ext1;
