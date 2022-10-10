@@ -161,6 +161,7 @@ static Node *CurrentSwitch;
 //         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
+//         | "_Alignof" unary
 //         | ident funcArgs?
 //         | str
 //         | num
@@ -2415,6 +2416,7 @@ static Node *funCall(Token **Rest, Token *Tok) {
 //         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
+//         | "_Alignof" unary
 //         | ident funcArgs?
 //         | str
 //         | num
@@ -2454,11 +2456,19 @@ static Node *primary(Token **Rest, Token *Tok) {
 
   // "_Alignof" "(" typeName ")"
   // 读取类型的对齐值
-  if (equal(Tok, "_Alignof")) {
-    Tok = skip(Tok->Next, "(");
-    Type *Ty = typename(&Tok, Tok);
+  if (equal(Tok, "_Alignof") && equal(Tok->Next, "(") &&
+      isTypename(Tok->Next->Next)) {
+    Type *Ty = typename(&Tok, Tok->Next->Next);
     *Rest = skip(Tok, ")");
     return newNum(Ty->Align, Tok);
+  }
+
+  // "_Alignof" unary
+  // 读取变量的对齐值
+  if (equal(Tok, "_Alignof")) {
+    Node *Nd = unary(Rest, Tok->Next);
+    addType(Nd);
+    return newNum(Nd->Ty->Align, Tok);
   }
 
   // ident args?
