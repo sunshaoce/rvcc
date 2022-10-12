@@ -24,7 +24,7 @@ $(OBJS): rvcc.h
 
 # 测试标签，运行测试
 test/%.exe: rvcc test/%.c
-	./rvcc -Itest -c -o test/$*.o test/$*.c
+	./rvcc -Iinclude -Itest -c -o test/$*.o test/$*.c
 	$(CC) -o $@ test/$*.o -xc test/common
 #	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.o -xc test/common
 
@@ -44,10 +44,9 @@ stage2/rvcc: $(OBJS:%=stage2/%)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # 利用stage1的rvcc去将rvcc的源代码编译为stage2的可重定位文件
-stage2/%.o: rvcc self.py %.c
+stage2/%.o: rvcc %.c
 	mkdir -p stage2/test
-	./self.py rvcc.h $*.c > stage2/$*.c
-	./rvcc -c -o stage2/$*.o stage2/$*.c
+	./rvcc -c -o $(@D)/$*.o $*.c
 
 # 利用stage2的rvcc去进行测试
 stage2/test/%.exe: stage2/rvcc test/%.c
