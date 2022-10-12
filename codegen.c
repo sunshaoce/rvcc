@@ -523,6 +523,27 @@ static void genStmt(Node *Nd) {
     printLn("%s:", Nd->BrkLabel);
     return;
   }
+  // 生成do while语句
+  case ND_DO: {
+    int C = count();
+    printLn("\n# =====do while语句%d============", C);
+    printLn("\n# begin语句%d", C);
+    printLn(".L.begin.%d:", C);
+
+    printLn("\n# Then语句%d", C);
+    genStmt(Nd->Then);
+
+    printLn("\n# Cond语句%d", C);
+    printLn("%s:", Nd->ContLabel);
+    genExpr(Nd->Cond);
+
+    printLn("  # 跳转到循环%d的.L.begin.%d段", C, C);
+    printLn("  bnez a0, .L.begin.%d", C);
+
+    printLn("\n# 循环%d的%s段标签", C, Nd->BrkLabel);
+    printLn("%s:", Nd->BrkLabel);
+    return;
+  }
   case ND_SWITCH:
     printLn("\n# =====switch语句===============");
     genExpr(Nd->Cond);

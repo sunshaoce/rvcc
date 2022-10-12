@@ -171,7 +171,7 @@ static bool isKeyword(Token *Tok) {
       "sizeof",   "char",     "struct", "union", "long",    "short",
       "void",     "typedef",  "_Bool",  "enum",  "static",  "goto",
       "break",    "continue", "switch", "case",  "default", "extern",
-      "_Alignof", "_Alignas",
+      "_Alignof", "_Alignas", "do",
   };
 
   // 遍历关键字列表匹配

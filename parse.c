@@ -125,6 +125,7 @@ static Node *CurrentSwitch;
 //        | "default" ":" stmt
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
+//        | "do" stmt "while" "(" expr ")" ";"
 //        | "goto" ident ";"
 //        | "break" ";"
 //        | "continue" ";"
@@ -1286,6 +1287,7 @@ static bool isTypename(Token *Tok) {
 //        | "default" ":" stmt
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
+//        | "do" stmt "while" "(" expr ")" ";"
 //        | "goto" ident ";"
 //        | "break" ";"
 //        | "continue" ";"
@@ -1470,6 +1472,36 @@ static Node *stmt(Token **Rest, Token *Tok) {
     Nd->GotoNext = Gotos;
     Gotos = Nd;
     *Rest = skip(Tok->Next->Next, ";");
+    return Nd;
+  }
+
+  // "do" stmt "while" "(" expr ")" ";"
+  if (equal(Tok, "do")) {
+    Node *Nd = newNode(ND_DO, Tok);
+
+    // 存储此前break和continue标签的名称
+    char *Brk = BrkLabel;
+    char *Cont = ContLabel;
+    // 设置break和continue标签的名称
+    BrkLabel = Nd->BrkLabel = newUniqueName();
+    ContLabel = Nd->ContLabel = newUniqueName();
+
+    // stmt
+    // do代码块内的语句
+    Nd->Then = stmt(&Tok, Tok->Next);
+
+    // 恢复此前的break和continue标签
+    BrkLabel = Brk;
+    ContLabel = Cont;
+
+    // "while" "(" expr ")" ";"
+    Tok = skip(Tok, "while");
+    Tok = skip(Tok, "(");
+    // expr
+    // while使用的条件表达式
+    Nd->Cond = expr(&Tok, Tok);
+    Tok = skip(Tok, ")");
+    *Rest = skip(Tok, ";");
     return Nd;
   }
 
