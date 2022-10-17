@@ -52,6 +52,7 @@ Token *tokenize(char *Input);
 // 生成AST（抽象语法树），语法解析
 //
 
+typedef struct Type Type;
 typedef struct Node Node;
 
 // 本地变量
@@ -98,6 +99,7 @@ struct Node {
   NodeKind Kind; // 节点种类
   Node *Next;    // 下一节点，指代下一语句
   Token *Tok;    // 节点对应的终结符
+  Type *Ty;      // 节点中数据的类型
 
   Node *LHS; // 左部，left-hand side
   Node *RHS; // 右部，right-hand side
@@ -118,6 +120,29 @@ struct Node {
 
 // 语法解析入口函数
 Function *parse(Token *Tok);
+
+//
+// 类型系统
+//
+
+// 类型种类
+typedef enum {
+  TY_INT, // int整型
+  TY_PTR, // 指针
+} TypeKind;
+
+struct Type {
+  TypeKind Kind; // 种类
+  Type *Base;    // 指向的类型
+};
+
+// 声明一个全局变量，定义在type.c中。
+extern Type *TyInt;
+
+// 判断是否为整型
+bool isInteger(Type *TY);
+// 为节点内的所有节点添加类型
+void addType(Node *Nd);
 
 //
 // 语义分析与代码生成

@@ -117,11 +117,13 @@ assert 10 '{ i=0; while(i<10) { i=i+1; } return i; }'
 # [20] 支持一元& *运算符
 assert 3 '{ x=3; return *&x; }'
 assert 3 '{ x=3; y=&x; z=&y; return **z; }'
-assert 5 '{ x=3; y=5; return *(&x+8); }'
-assert 3 '{ x=3; y=5; return *(&y-8); }'
 assert 5 '{ x=3; y=&x; *y=5; return x; }'
-assert 7 '{ x=3; y=5; *(&x+8)=7; return y; }'
-assert 7 '{ x=3; y=5; *(&y-8)=7; return x; }'
+
+# [21] 支持指针的算术运算
+assert 3 '{ x=3; y=5; return *(&y-1); }'
+assert 5 '{ x=3; y=5; return *(&x+1); }'
+assert 7 '{ x=3; y=5; *(&y-1)=7; return x; }'
+assert 7 '{ x=3; y=5; *(&x+1)=7; return y; }'
 
 # 如果运行正常未提前退出，程序将显示OK
 echo OK
