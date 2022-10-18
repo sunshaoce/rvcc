@@ -12,3 +12,6 @@ int memcmp(char *p, char *q, long n);
 
 // [127] 允许调用可变参数函数
 int sprintf(char *buf, char *fmt, ...);
+
+// [136] 忽略const volatile auto register restrict _Noreturn
+void exit(int n);
