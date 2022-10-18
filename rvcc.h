@@ -86,6 +86,7 @@ struct Obj {
   Obj *Next;    // 指向下一对象
   char *Name;   // 变量名
   Type *Ty;     // 变量类型
+  Token *Tok;   // 对应的终结符
   bool IsLocal; // 是 局部或全局 变量
   int Align;    // 对齐量
   // 局部变量
@@ -246,6 +247,7 @@ struct Type {
 
   // 类型对应名称，如：变量名、函数名
   Token *Name;
+  Token *NamePos; // 名称位置
 
   // 数组
   int ArrayLen; // 数组长度, 元素总个数

@@ -758,14 +758,23 @@ static Type *declarator(Token **Rest, Token *Tok, Type *Ty) {
     return declarator(&Tok, Start->Next, Ty);
   }
 
-  if (Tok->Kind != TK_IDENT)
-    errorTok(Tok, "expected a variable name");
+  // 默认名称为空
+  Token *Name = NULL;
+  // 名称位置指向类型后的区域
+  Token *NamePos = Tok;
+
+  // 存在名字则赋值
+  if (Tok->Kind == TK_IDENT) {
+    Name = Tok;
+    Tok = Tok->Next;
+  }
 
   // typeSuffix
-  Ty = typeSuffix(Rest, Tok->Next, Ty);
+  Ty = typeSuffix(Rest, Tok, Ty);
   // ident
   // 变量名 或 函数名
-  Ty->Name = Tok;
+  Ty->Name = Name;
+  Ty->NamePos = NamePos;
   return Ty;
 }
 
@@ -900,6 +909,8 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy,
     Type *Ty = declarator(&Tok, Tok, BaseTy);
     if (Ty->Kind == TY_VOID)
       errorTok(Tok, "variable declared void");
+    if (!Ty->Name)
+      errorTok(Ty->NamePos, "variable name omitted");
 
     if (Attr && Attr->IsStatic) {
       // 静态局部变量
@@ -2699,6 +2710,8 @@ static Token *parseTypedef(Token *Tok, Type *BaseTy) {
     First = false;
 
     Type *Ty = declarator(&Tok, Tok, BaseTy);
+    if (!Ty->Name)
+      errorTok(Ty->NamePos, "typedef name omitted");
     // 类型别名的变量名存入变量域中，并设置类型
     pushScope(getIdent(Ty->Name))->Typedef = Ty;
   }
@@ -2711,6 +2724,8 @@ static void createParamLVars(Type *Param) {
     // 递归到形参最底部
     // 先将最底部的加入Locals中，之后的都逐个加入到顶部，保持顺序不变
     createParamLVars(Param->Next);
+    if (!Param->Name)
+      errorTok(Param->NamePos, "parameter name omitted");
     // 添加到Locals中
     newLVar(getIdent(Param->Name), Param);
   }
@@ -2739,6 +2754,8 @@ static void resolveGotoLabels(void) {
 // functionDefinition = declspec declarator "{" compoundStmt*
 static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Type *Ty = declarator(&Tok, Tok, BaseTy);
+  if (!Ty->Name)
+    errorTok(Ty->NamePos, "function name omitted");
 
   Obj *Fn = newGVar(getIdent(Ty->Name), Ty);
   Fn->IsFunction = true;
@@ -2783,6 +2800,8 @@ static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
     First = false;
 
     Type *Ty = declarator(&Tok, Tok, Basety);
+    if (!Ty->Name)
+      errorTok(Ty->NamePos, "variable name omitted");
     // 全局变量初始化
     Obj *Var = newGVar(getIdent(Ty->Name), Ty);
     // 是否具有定义
