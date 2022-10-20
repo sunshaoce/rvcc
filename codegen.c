@@ -413,11 +413,24 @@ static void genExpr(Node *Nd) {
   }
   // 对寄存器取反
   case ND_NEG:
+    // 计算左部的表达式
     genExpr(Nd->LHS);
-    // neg a0, a0是sub a0, x0, a0的别名, 即a0=0-a0
-    printLn("  # 对a0值进行取反");
-    printLn("  neg%s a0, a0", Nd->Ty->Size <= 4 ? "w" : "");
-    return;
+
+    switch (Nd->Ty->Kind) {
+    case TY_FLOAT:
+      printLn("  # 对float类型的fa0值进行取反");
+      printLn("  fneg.s fa0, fa0");
+      return;
+    case TY_DOUBLE:
+      printLn("  # 对double类型的fa0值进行取反");
+      printLn("  fneg.d fa0, fa0");
+      return;
+    default:
+      // neg a0, a0是sub a0, x0, a0的别名, 即a0=0-a0
+      printLn("  # 对a0值进行取反");
+      printLn("  neg%s a0, a0", Nd->Ty->Size <= 4 ? "w" : "");
+      return;
+    }
   // 变量
   case ND_VAR:
   case ND_MEMBER:
@@ -617,6 +630,22 @@ static void genExpr(Node *Nd) {
     char *Suffix = (Nd->LHS->Ty->Kind == TY_FLOAT) ? "s" : "d";
 
     switch (Nd->Kind) {
+    case ND_ADD:
+      printLn("  # fa0+fa1，结果写入fa0");
+      printLn("  fadd.%s fa0, fa0, fa1", Suffix);
+      return;
+    case ND_SUB:
+      printLn("  # fa0-fa1，结果写入fa0");
+      printLn("  fsub.%s fa0, fa0, fa1", Suffix);
+      return;
+    case ND_MUL:
+      printLn("  # fa0×fa1，结果写入fa0");
+      printLn("  fmul.%s fa0, fa0, fa1", Suffix);
+      return;
+    case ND_DIV:
+      printLn("  # fa0÷fa1，结果写入fa0");
+      printLn("  fdiv.%s fa0, fa0, fa1", Suffix);
+      return;
     case ND_EQ:
       printLn("  # 判断是否fa0=fa1");
       printLn("  feq.%s a0, fa0, fa1", Suffix);

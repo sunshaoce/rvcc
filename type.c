@@ -37,6 +37,9 @@ bool isFloNum(Type *Ty) {
   return Ty->Kind == TY_FLOAT || Ty->Kind == TY_DOUBLE;
 }
 
+// 判断是否为数字
+bool isNumeric(Type *Ty) { return isInteger(Ty) || isFloNum(Ty); }
+
 // 复制类型
 Type *copyType(Type *Ty) {
   Type *Ret = calloc(1, sizeof(Type));

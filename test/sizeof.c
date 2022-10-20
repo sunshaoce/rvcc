@@ -105,6 +105,16 @@ int main() {
   ASSERT(4, sizeof(float));
   ASSERT(8, sizeof(double));
 
+  // [142] 支持浮点数的 + - *和/
+  ASSERT(4, sizeof(1f + 2));
+  ASSERT(8, sizeof(1.0+2));
+  ASSERT(4, sizeof(1f-2));
+  ASSERT(8, sizeof(1.0-2));
+  ASSERT(4, sizeof(1f*2));
+  ASSERT(8, sizeof(1.0*2));
+  ASSERT(4, sizeof(1f/2));
+  ASSERT(8, sizeof(1.0/2));
+
   printf("OK\n");
   return 0;
 }

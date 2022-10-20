@@ -299,6 +299,8 @@ extern Type *TyDouble;
 bool isInteger(Type *TY);
 // 判断是否为浮点类型
 bool isFloNum(Type *Ty);
+// 判断是否为数字
+bool isNumeric(Type *Ty);
 // 复制类型
 Type *copyType(Type *Ty);
 // 构建一个指针类型，并指向基类
