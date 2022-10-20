@@ -48,6 +48,22 @@ static void pop(char *Reg) {
   Depth--;
 }
 
+// 对于浮点类型进行压栈
+static void pushF(void) {
+  printLn("  # 压栈，将fa0的值存入栈顶");
+  printLn("  addi sp, sp, -8");
+  printLn("  fsd fa0, 0(sp)");
+  Depth++;
+}
+
+// 对于浮点类型进行弹栈
+static void popF(char *Reg) {
+  printLn("  # 弹栈，将栈顶的值存入%s", Reg);
+  printLn("  fld %s, 0(sp)", Reg);
+  printLn("  addi sp, sp, 8");
+  Depth--;
+}
+
 // 对齐到Align的整数倍
 int alignTo(int N, int Align) {
   // (0,Align]返回Align
@@ -583,6 +599,44 @@ static void genExpr(Node *Nd) {
   }
   default:
     break;
+  }
+
+  // 处理浮点类型
+  if (isFloNum(Nd->LHS->Ty)) {
+    // 递归到最右节点
+    genExpr(Nd->RHS);
+    // 将结果压入栈
+    pushF();
+    // 递归到左节点
+    genExpr(Nd->LHS);
+    // 将结果弹栈到fa1
+    popF("fa1");
+
+    // 生成各个二叉树节点
+    // float对应s(single)后缀，double对应d(double)后缀
+    char *Suffix = (Nd->LHS->Ty->Kind == TY_FLOAT) ? "s" : "d";
+
+    switch (Nd->Kind) {
+    case ND_EQ:
+      printLn("  # 判断是否fa0=fa1");
+      printLn("  feq.%s a0, fa0, fa1", Suffix);
+      return;
+    case ND_NE:
+      printLn("  # 判断是否fa0≠fa1");
+      printLn("  feq.%s a0, fa0, fa1", Suffix);
+      printLn("  seqz a0, a0");
+      return;
+    case ND_LT:
+      printLn("  # 判断是否fa0<fa1");
+      printLn("  flt.%s a0, fa0, fa1", Suffix);
+      return;
+    case ND_LE:
+      printLn("  # 判断是否fa0≤fa1");
+      printLn("  fle.%s a0, fa0, fa1", Suffix);
+      return;
+    default:
+      errorTok(Nd->Tok, "invalid expression");
+    }
   }
 
   // 递归到最右节点

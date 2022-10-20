@@ -80,6 +80,14 @@ static Type *getCommonType(Type *Ty1, Type *Ty2) {
   if (Ty1->Base)
     return pointerTo(Ty1->Base);
 
+  // 处理浮点类型
+  // 优先使用double类型
+  if (Ty1->Kind == TY_DOUBLE || Ty2->Kind == TY_DOUBLE)
+    return TyDouble;
+  // 其次使用float类型
+  if (Ty1->Kind == TY_FLOAT || Ty2->Kind == TY_FLOAT)
+    return TyFloat;
+
   // 小于四字节则为int
   if (Ty1->Size < 4)
     Ty1 = TyInt;
