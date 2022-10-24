@@ -195,6 +195,7 @@ static int64_t eval(Node *Nd);
 static int64_t eval2(Node *Nd, char **Label);
 static int64_t evalRVal(Node *Nd, char **Label);
 static int64_t constExpr(Token **Rest, Token *Tok);
+static double evalDouble(Node *Nd);
 static Node *assign(Token **Rest, Token *Tok);
 static Node *conditional(Token **Rest, Token *Tok);
 static Node *logOr(Token **Rest, Token *Tok);
@@ -1337,6 +1338,20 @@ static Relocation *writeGVarData(Relocation *Cur, Initializer *Init, Type *Ty,
   if (!Init->Expr)
     return Cur;
 
+  // 处理单精度浮点数
+  if (Ty->Kind == TY_FLOAT) {
+    // 将缓冲区加上偏移量转换为float*后访问
+    *(float *)(Buf + Offset) = evalDouble(Init->Expr);
+    return Cur;
+  }
+
+  // 处理双精度浮点数
+  if (Ty->Kind == TY_DOUBLE) {
+    // 将缓冲区加上偏移量转换为double*后访问
+    *(double *)(Buf + Offset) = evalDouble(Init->Expr);
+    return Cur;
+  }
+
   // 预设使用到的 其他全局变量的名称
   char *Label = NULL;
   uint64_t Val = eval2(Init->Expr, &Label);
@@ -1752,6 +1767,10 @@ static int64_t eval(Node *Nd) { return eval2(Nd, NULL); }
 static int64_t eval2(Node *Nd, char **Label) {
   addType(Nd);
 
+  // 处理浮点数
+  if (isFloNum(Nd->Ty))
+    return evalDouble(Nd);
+
   switch (Nd->Kind) {
   case ND_ADD:
     return eval2(Nd->LHS, Label) + eval(Nd->RHS);
@@ -1878,6 +1897,44 @@ static int64_t constExpr(Token **Rest, Token *Tok) {
   Node *Nd = conditional(Rest, Tok);
   // 进行常量表达式的计算
   return eval(Nd);
+}
+
+// 解析浮点表达式
+static double evalDouble(Node *Nd) {
+  addType(Nd);
+
+  // 处理是整型的情况
+  if (isInteger(Nd->Ty)) {
+    if (Nd->Ty->IsUnsigned)
+      return (unsigned long)eval(Nd);
+    return eval(Nd);
+  }
+
+  switch (Nd->Kind) {
+  case ND_ADD:
+    return evalDouble(Nd->LHS) + evalDouble(Nd->RHS);
+  case ND_SUB:
+    return evalDouble(Nd->LHS) - evalDouble(Nd->RHS);
+  case ND_MUL:
+    return evalDouble(Nd->LHS) * evalDouble(Nd->RHS);
+  case ND_DIV:
+    return evalDouble(Nd->LHS) / evalDouble(Nd->RHS);
+  case ND_NEG:
+    return -evalDouble(Nd->LHS);
+  case ND_COND:
+    return evalDouble(Nd->Cond) ? evalDouble(Nd->Then) : evalDouble(Nd->Els);
+  case ND_COMMA:
+    return evalDouble(Nd->RHS);
+  case ND_CAST:
+    if (isFloNum(Nd->LHS->Ty))
+      return evalDouble(Nd->LHS);
+    return eval(Nd->LHS);
+  case ND_NUM:
+    return Nd->FVal;
+  default:
+    errorTok(Nd->Tok, "not a compile-time constant");
+    return -1;
+  }
 }
 
 // 转换 A op= B为 TMP = &A, *TMP = *TMP op B
