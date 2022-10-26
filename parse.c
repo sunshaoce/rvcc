@@ -686,10 +686,15 @@ static Type *funcParams(Token **Rest, Token *Tok, Type *Ty) {
     Type *Ty2 = declspec(&Tok, Tok, NULL);
     Ty2 = declarator(&Tok, Tok, Ty2);
 
-    // T类型的数组被转换为T*
+    // 存储名称
+    Token *Name = Ty2->Name;
+
+    // T类型的数组或函数被转换为T*
     if (Ty2->Kind == TY_ARRAY) {
-      Token *Name = Ty2->Name;
       Ty2 = pointerTo(Ty2->Base);
+      Ty2->Name = Name;
+    } else if (Ty2->Kind == TY_FUNC) {
+      Ty2 = pointerTo(Ty2);
       Ty2->Name = Name;
     }
 
