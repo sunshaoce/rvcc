@@ -121,6 +121,9 @@ int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
   return fn;
 }
 
+// [152] 在函数参数中退化函数为指针
+int param_decay2(int x()) { return x(); }
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -213,6 +216,9 @@ int main() {
   ASSERT(5, (&add2)(2,3));
   ASSERT(7, ({ int (*fn)(int,int) = add2; fn(2,5); }));
   ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
+
+  // [152] 在函数参数中退化函数为指针
+  ASSERT(3, param_decay2(ret3));
 
   printf("OK\n");
   return 0;
