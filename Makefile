@@ -11,6 +11,8 @@ TEST_SRCS=$(wildcard test/*.c)
 # test/文件夹的c测试文件编译出的可执行文件
 TESTS=$(TEST_SRCS:.c=.exe)
 
+# Stage 1
+
 # rvcc标签，表示如何构建最终的二进制文件，依赖于所有的.o文件
 # $@表示目标文件，此处为rvcc，$^表示依赖文件，此处为$(OBJS)
 rvcc: $(OBJS)
@@ -31,12 +33,42 @@ test: $(TESTS)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
 #	for i in $^; do echo $$i; $(RISCV)/bin/qemu-riscv64 -L $(RISCV)/sysroot ./$$i || exit 1; echo; done
 #	for i in $^; do echo $$i; $(RISCV)/bin/spike --isa=rv64gc $(RISCV)/riscv64-unknown-linux-gnu/bin/pk ./$$i || exit 1; echo; done
-	test/driver.sh
+	test/driver.sh ./rvcc
+
+# 进行全部的测试
+test-all: test test-stage2
+
+# Stage 2
+
+# 此时构建的stage2/rvcc是RISC-V版本的，跟平台无关
+stage2/rvcc: $(OBJS:%=stage2/%)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 利用stage1的rvcc去将rvcc的源代码编译为stage2的汇编文件
+stage2/%.s: rvcc self.py %.c
+	mkdir -p stage2/test
+	./self.py rvcc.h $*.c > stage2/$*.c
+	./rvcc -o stage2/$*.s stage2/$*.c
+
+# stage2的汇编编译为可重定位文件
+stage2/%.o: stage2/%.s
+	$(CC) -c stage2/$*.s -o stage2/$*.o
+
+# 利用stage2的rvcc去进行测试
+stage2/test/%.exe: stage2/rvcc test/%.c
+	mkdir -p stage2/test
+	$(CC) -o- -E -P -C test/$*.c | ./stage2/rvcc -o stage2/test/$*.s -
+	$(CC) -o $@ stage2/test/$*.s -xc test/common
+
+test-stage2: $(TESTS:test/%=stage2/test/%)
+	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+	test/driver.sh ./stage2/rvcc
+
 
 # 清理标签，清理所有非源代码文件
 clean:
-	rm -rf rvcc tmp* $(TESTS) test/*.s test/*.exe
+	rm -rf rvcc tmp* $(TESTS) test/*.s test/*.exe stage2/
 	find * -type f '(' -name '*~' -o -name '*.o' -o -name '*.s' ')' -exec rm {} ';'
 
 # 伪目标，没有实际的依赖文件
-.PHONY: test clean
+.PHONY: test clean test-stage2

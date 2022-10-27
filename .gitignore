@@ -24,6 +24,9 @@ a.out
 # CMake生成的文件目录
 build/
 
+# stage2相关文件夹
+/stage2
+
 # IDE相关文件夹
 .cache/
 .vscode/
