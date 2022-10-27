@@ -65,6 +65,16 @@ long strtoul(char *nptr, char **endptr, int base);
 void exit(int code);
 double log2(double);
 extern void* __va_area__;
+char *basename(char *path);
+char *strrchr(char *s, int c);
+int unlink(char *pathname);
+int mkstemp(char *template);
+int close(int fd);
+int fork(void);
+int execvp(char *file, char **argv);
+void _exit(int code);
+int wait(int *wstatus);
+int atexit(void (*)(void));
 """)
 
 # 对文件内容进行替换
