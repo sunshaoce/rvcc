@@ -1,5 +1,7 @@
 #include "rvcc.h"
 
+// 输出文件
+static FILE *OutputFile;
 // 记录栈深度
 static int Depth;
 // 用于函数参数的寄存器们
@@ -10,15 +12,15 @@ static Obj *CurrentFn;
 static void genExpr(Node *Nd);
 static void genStmt(Node *Nd);
 
-// 输出字符串并换行
+// 输出字符串到目标文件并换行
 static void printLn(char *Fmt, ...) {
   va_list VA;
 
   va_start(VA, Fmt);
-  vprintf(Fmt, VA);
+  vfprintf(OutputFile, Fmt, VA);
   va_end(VA);
 
-  printf("\n");
+  fprintf(OutputFile, "\n");
 }
 
 // 代码段计数
@@ -456,7 +458,10 @@ void emitText(Obj *Prog) {
   }
 }
 
-void codegen(Obj *Prog) {
+void codegen(Obj *Prog, FILE *Out) {
+  // 设置目标文件的文件流指针
+  OutputFile = Out;
+
   // 计算局部变量的偏移量
   assignLVarOffsets(Prog);
   // 生成数据
