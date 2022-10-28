@@ -14,8 +14,13 @@ static bool OptHashHashHash;
 // 目标文件的路径
 static char *OptO;
 
-// 输入文件的路径
-static char *InputPath;
+// 输入文件名
+static char *BaseFile;
+// 输出文件名
+static char *OutputFile;
+
+// 输入文件区
+static StringArray InputPaths;
 // 临时文件区
 static StringArray TmpFiles;
 
@@ -25,8 +30,19 @@ static void usage(int Status) {
   exit(Status);
 }
 
+// 判断需要一个参数的选项，是否具有一个参数
+static bool takeArg(char *Arg) { return !strcmp(Arg, "-o"); }
+
 // 解析传入程序的参数
 static void parseArgs(int Argc, char **Argv) {
+  // 确保需要一个参数的选项，存在一个参数
+  for (int I = 1; I < Argc; I++)
+    // 如果需要一个参数
+    if (takeArg(Argv[I]))
+      // 如果不存在一个参数，则打印出使用说明
+      if (!Argv[++I])
+        usage(1);
+
   // 遍历所有传入程序的参数
   for (int I = 1; I < Argc; I++) {
     // 解析-###
@@ -47,11 +63,8 @@ static void parseArgs(int Argc, char **Argv) {
 
     // 解析-o XXX的参数
     if (!strcmp(Argv[I], "-o")) {
-      // 不存在目标文件则报错
-      if (!Argv[++I])
-        usage(1);
       // 目标文件的路径
-      OptO = Argv[I];
+      OptO = Argv[++I];
       continue;
     }
 
@@ -68,16 +81,28 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-cc1-input
+    if (!strcmp(Argv[I], "-cc1-input")) {
+      BaseFile = Argv[++I];
+      continue;
+    }
+
+    // 解析-cc1-output
+    if (!strcmp(Argv[I], "-cc1-output")) {
+      OutputFile = Argv[++I];
+      continue;
+    }
+
     // 解析为-的参数
     if (Argv[I][0] == '-' && Argv[I][1] != '\0')
       error("unknown argument: %s", Argv[I]);
 
     // 其他情况则匹配为输入文件
-    InputPath = Argv[I];
+    strArrayPush(&InputPaths, Argv[I]);
   }
 
   // 不存在输入文件时报错
-  if (!InputPath)
+  if (InputPaths.Len == 0)
     error("no input files");
 }
 
@@ -175,12 +200,14 @@ static void runCC1(int Argc, char **Argv, char *Input, char *Output) {
   Args[Argc++] = "-cc1";
 
   // 存入输入文件的参数
-  if (Input)
+  if (Input) {
+    Args[Argc++] = "-cc1-input";
     Args[Argc++] = Input;
+  }
 
   // 存入输出文件的参数
   if (Output) {
-    Args[Argc++] = "-o";
+    Args[Argc++] = "-cc1-output";
     Args[Argc++] = Output;
   }
 
@@ -191,15 +218,15 @@ static void runCC1(int Argc, char **Argv, char *Input, char *Output) {
 // 编译C文件到汇编文件
 static void cc1(void) {
   // 解析文件，生成终结符流
-  Token *Tok = tokenizeFile(InputPath);
+  Token *Tok = tokenizeFile(BaseFile);
 
   // 解析终结符流
   Obj *Prog = parse(Tok);
 
   // 生成代码
-  FILE *Out = openFile(OptO);
+  FILE *Out = openFile(OutputFile);
   // .file 文件编号 文件名
-  fprintf(Out, ".file 1 \"%s\"\n", InputPath);
+  fprintf(Out, ".file 1 \"%s\"\n", BaseFile);
   codegen(Prog, Out);
 }
 
@@ -239,30 +266,41 @@ int main(int Argc, char **Argv) {
     return 0;
   }
 
-  // 输出文件
-  char *Output;
-  // 如果指定了输出文件，则直接使用
-  if (OptO)
-    Output = OptO;
-  // 若未指定输出的汇编文件名，则输出到后缀为.s的同名文件中
-  else if (OptS)
-    Output = replaceExtn(InputPath, ".s");
-  // 若未指定输出的可重定位文件名，则输出到后缀为.o的同名文件中
-  else
-    Output = replaceExtn(InputPath, ".o");
+  // 当前不能将多个输入文件，输出到一个文件中
+  if (InputPaths.Len > 1 && OptO)
+    error("cannot specify '-o' with multiple files");
 
-  // 如果有-S选项，那么执行调用cc1程序
-  if (OptS) {
-    runCC1(Argc, Argv, InputPath, Output);
-    return 0;
+  // 遍历每个输入文件
+  for (int I = 0; I < InputPaths.Len; I++) {
+    // 读取输入文件
+    char *Input = InputPaths.Data[I];
+
+    // 输出文件
+    char *Output;
+    // 如果指定了输出文件，则直接使用
+    if (OptO)
+      Output = OptO;
+    // 若未指定输出的汇编文件名，则输出到后缀为.s的同名文件中
+    else if (OptS)
+      Output = replaceExtn(Input, ".s");
+    // 若未指定输出的可重定位文件名，则输出到后缀为.o的同名文件中
+    else
+      Output = replaceExtn(Input, ".o");
+
+    // 如果有-S选项，那么执行调用cc1程序
+    if (OptS) {
+      runCC1(Argc, Argv, Input, Output);
+      continue;
+    }
+
+    // 否则运行cc1和as
+    // 临时文件TmpFile作为cc1输出的汇编文件
+    char *TmpFile = createTmpFile();
+    // cc1，编译C文件为汇编文件
+    runCC1(Argc, Argv, Input, TmpFile);
+    // as，编译汇编文件为可重定位文件
+    assemble(TmpFile, Output);
   }
 
-  // 否则运行cc1和as
-  // 临时文件TmpFile作为cc1输出的汇编文件
-  char *TmpFile = createTmpFile();
-  // cc1，编译C文件为汇编文件
-  runCC1(Argc, Argv, InputPath, TmpFile);
-  // as，编译汇编文件为可重定位文件
-  assemble(TmpFile, Output);
   return 0;
 }
