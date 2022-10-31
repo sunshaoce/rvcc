@@ -1078,23 +1078,45 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // 计算数组初始化元素个数
+// An array length can be omitted if an array has an initializer
+// (e.g. `int x[] = {1,2,3}`). If it's omitted, count the number
+// of initializer elements.
 static int countArrayInitElements(Token *Tok, Type *Ty) {
-  Initializer *Dummy = newInitializer(Ty->Base, false);
-  // 项数
-  int I = 0;
+  bool First = true;
+  Initializer *Dummy = newInitializer(Ty->Base, true);
 
-  // 遍历所有匹配的项
-  for (; !consumeEnd(&Tok, Tok); I++) {
-    if (I > 0)
+  int I = 0, Max = 0;
+
+  while (!consumeEnd(&Tok, Tok)) {
+    if (!First)
       Tok = skip(Tok, ",");
-    initializer2(&Tok, Tok, Dummy);
+    First = false;
+
+    if (equal(Tok, "[")) {
+      I = constExpr(&Tok, Tok->Next);
+      if (equal(Tok, "..."))
+        I = constExpr(&Tok, Tok->Next);
+      Tok = skip(Tok, "]");
+      designation(&Tok, Tok, Dummy);
+    } else {
+      initializer2(&Tok, Tok, Dummy);
+    }
+
+    I++;
+    Max = MAX(Max, I);
   }
-  return I;
+  return Max;
 }
 
 // arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
 static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
+
+  if (Init->IsFlexible) {
+    int Len = countArrayInitElements(Tok, Init->Ty);
+    *Init = *newInitializer(arrayOf(Init->Ty->Base, Len), false);
+  }
+
   bool first = true;
 
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
