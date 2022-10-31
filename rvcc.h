@@ -402,6 +402,7 @@ bool isIdent2_1(uint32_t C);
 int encodeUTF8(char *Buf, uint32_t C);
 // 将UTF-8的格式解码为unicode字符
 uint32_t decodeUTF8(char **NewPos, char *P);
+int displayWidth(char *P, int Len);
 
 //
 // 主程序，驱动文件
