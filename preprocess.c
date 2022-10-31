@@ -987,6 +987,11 @@ static Token *preprocess2(Token *Tok) {
       continue;
     }
 
+    if (Tok->Kind == TK_PP_NUM) {
+      readLineMarker(&Tok, Tok);
+      continue;
+    }
+
     // 匹配#error
     if (equal(Tok, "error"))
       errorTok(Tok, "error");
