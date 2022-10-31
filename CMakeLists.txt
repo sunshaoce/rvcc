@@ -7,6 +7,7 @@ project( rvcc C )
 # 可执行文件rvcc的依赖文件
 add_executable( rvcc
   main.c
+  preprocess.c
   string.c
   tokenize.c
   parse.c

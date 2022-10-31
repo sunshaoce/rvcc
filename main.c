@@ -236,6 +236,9 @@ static void cc1(void) {
   // 解析文件，生成终结符流
   Token *Tok = tokenizeFile(BaseFile);
 
+  // 预处理
+  Tok = preprocess(Tok);
+
   // 解析终结符流
   Obj *Prog = parse(Tok);
 
