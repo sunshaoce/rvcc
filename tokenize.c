@@ -132,6 +132,7 @@ static Token *newToken(TokenKind Kind, char *Start, char *End) {
   Tok->Len = End - Start;
   // 输入文件
   Tok->File = CurrentFile;
+  Tok->Filename = CurrentFile->DisplayName;
   // 读取是否为行首，然后设置为false
   Tok->AtBOL = AtBOL;
   AtBOL = false;
@@ -806,6 +807,7 @@ File **getInputFiles(void) { return InputFiles; }
 File *newFile(char *Name, int FileNo, char *Contents) {
   File *FP = calloc(1, sizeof(File));
   FP->Name = Name;
+  FP->DisplayName = FP->Name;
   FP->FileNo = FileNo;
   FP->Contents = Contents;
   return FP;

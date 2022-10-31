@@ -811,6 +811,24 @@ static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
   return append(Tok2, Tok);
 }
 
+// Read #line arguments
+static void readLineMarker(Token **Rest, Token *Tok) {
+  Token *Start = Tok;
+  Tok = preprocess(copyLine(Rest, Tok));
+
+  if (Tok->Kind != TK_NUM || Tok->Ty->Kind != TY_INT)
+    errorTok(Tok, "invalid line marker");
+  Start->File->LineDelta = Tok->Val - Start->LineNo;
+
+  Tok = Tok->Next;
+  if (Tok->Kind == TK_EOF)
+    return;
+
+  if (Tok->Kind != TK_STR)
+    errorTok(Tok, "filename expected");
+  Start->File->DisplayName = Tok->Str;
+}
+
 // 遍历终结符，处理宏和指示
 static Token *preprocess2(Token *Tok) {
   Token Head = {};
@@ -824,6 +842,8 @@ static Token *preprocess2(Token *Tok) {
 
     // 如果不是#号开头则前进
     if (!isHash(Tok)) {
+      Tok->LineDelta = Tok->File->LineDelta;
+      Tok->Filename = Tok->File->DisplayName;
       Cur->Next = Tok;
       Cur = Cur->Next;
       Tok = Tok->Next;
@@ -961,6 +981,12 @@ static Token *preprocess2(Token *Tok) {
       continue;
     }
 
+    // 匹配#line
+    if (equal(Tok, "line")) {
+      readLineMarker(&Tok, Tok->Next);
+      continue;
+    }
+
     // 匹配#error
     if (equal(Tok, "error"))
       errorTok(Tok, "error");
@@ -1005,7 +1031,7 @@ static Token *fileMacro(Token *Tmpl) {
   while (Tmpl->Origin)
     Tmpl = Tmpl->Origin;
   // 根据原始宏的文件名构建字符串终结符
-  return newStrToken(Tmpl->File->Name, Tmpl);
+  return newStrToken(Tmpl->File->DisplayName, Tmpl);
 }
 
 // 行标号函数
@@ -1014,7 +1040,8 @@ static Token *lineMacro(Token *Tmpl) {
   while (Tmpl->Origin)
     Tmpl = Tmpl->Origin;
   // 根据原始的宏的行号构建数值终结符
-  return newNumToken(Tmpl->LineNo, Tmpl);
+  int I = Tmpl->LineNo + Tmpl->File->LineDelta;
+  return newNumToken(I, Tmpl);
 }
 
 // __COUNTER__被展开为从0开始的连续值
@@ -1231,5 +1258,8 @@ Token *preprocess(Token *Tok) {
   convertPPTokens(Tok);
   // 拼接相邻的字符串字面量
   joinAdjacentStringLiterals(Tok);
+
+  for (Token *T = Tok; T; T = T->Next)
+    T->LineNo += T->LineDelta;
   return Tok;
 }

@@ -70,6 +70,10 @@ typedef struct {
   char *Name;     // 文件名
   int FileNo;     // 文件编号，从1开始
   char *Contents; // 文件内容
+
+  // For #line directive
+  char *DisplayName;
+  int LineDelta;
 } File;
 
 // 终结符结构体
@@ -85,7 +89,9 @@ struct Token {
   char *Str;      // 字符串字面量，包括'\0'
 
   File *File;       // 源文件位置
+  char *Filename;   // Filename
   int LineNo;       // 行号
+  int LineDelta;    // Line number
   bool AtBOL;       // 终结符在行首（begin of line）时为true
   bool HasSpace;    // 终结符前是否有空格
   Hideset *Hideset; // 用于宏展开时的隐藏集
