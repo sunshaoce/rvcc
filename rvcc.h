@@ -85,11 +85,19 @@ void errorTok(Token *Tok, char *Fmt, ...);
 bool equal(Token *Tok, char *Str);
 Token *skip(Token *Tok, char *Str);
 bool consume(Token **Rest, Token *Tok, char *Str);
+// 转换关键字
+void convertKeywords(Token *Tok);
 // 词法分析
 Token *tokenizeFile(char *Path);
 
 // 指rvcc源文件的某个文件的某一行出了问题，打印出文件名和行号
 #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__)
+
+//
+// 预处理器
+//
+
+Token *preprocess(Token *Tok);
 
 //
 // 生成AST（抽象语法树），语法解析
