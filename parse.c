@@ -52,6 +52,10 @@ struct Initializer {
 
   // 如果是聚合类型（如数组或结构体），Children有子节点的初始化器
   Initializer **Children;
+
+  // Only one member can be initialized for a union.
+  // `mem` is used to clarify which member is initialized.
+  Member *Mem;
 };
 
 // 指派初始化，用于局部变量的初始化器
@@ -1114,6 +1118,13 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
     return;
   }
 
+  if (equal(Tok, ".") && Init->Ty->Kind == TY_UNION) {
+    Member *Mem = structDesignator(&Tok, Tok, Init->Ty);
+    Init->Mem = Mem;
+    designation(Rest, Tok, Init->Children[Mem->Idx]);
+    return;
+  }
+
   if (equal(Tok, "."))
     errorTok(Tok, "field name not in struct or union initializer");
 
@@ -1275,6 +1286,19 @@ static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init,
 // unionInitializer = "{" initializer "}"
 static void unionInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   // 联合体只接受第一个成员用来初始化
+  // Unlike structs, union initializers take only one initializer,
+  // and that initializes the first union member by default.
+  // You can initialize other member using a designated initializer.
+  if (equal(Tok, "{") && equal(Tok->Next, ".")) {
+    Member *Mem = structDesignator(&Tok, Tok->Next, Init->Ty);
+    Init->Mem = Mem;
+    designation(&Tok, Tok, Init->Children[Mem->Idx]);
+    *Rest = skip(Tok, "}");
+    return;
+  }
+
+  Init->Mem = Init->Ty->Mems;
+
   if (equal(Tok, "{")) {
     // 存在括号的情况
     initializer2(&Tok, Tok->Next, Init->Children[0]);
@@ -1453,10 +1477,9 @@ static Node *createLVarInit(Initializer *Init, Type *Ty, InitDesig *Desig,
   }
 
   if (Ty->Kind == TY_UNION) {
-    // Desig2存储了成员变量
-    InitDesig Desig2 = {Desig, 0, Ty->Mems};
-    // 只处理第一个成员变量
-    return createLVarInit(Init->Children[0], Ty->Mems->Ty, &Desig2, Tok);
+    Member *Mem = Init->Mem ? Init->Mem : Ty->Mems;
+    InitDesig Desig2 = {Desig, 0, Mem};
+    return createLVarInit(Init->Children[Mem->Idx], Mem->Ty, &Desig2, Tok);
   }
 
   // 如果需要作为右值的表达式为空，则设为空表达式
@@ -1559,7 +1582,10 @@ static Relocation *writeGVarData(Relocation *Cur, Initializer *Init, Type *Ty,
 
   // 处理联合体
   if (Ty->Kind == TY_UNION) {
-    return writeGVarData(Cur, Init->Children[0], Ty->Mems->Ty, Buf, Offset);
+    if (!Init->Mem)
+      return Cur;
+    return writeGVarData(Cur, Init->Children[Init->Mem->Idx], Init->Mem->Ty,
+                         Buf, Offset);
   }
 
   // 这里返回，则会使Buf值为0
