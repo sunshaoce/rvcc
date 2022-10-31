@@ -37,6 +37,9 @@ char g43[][4] = {'f', 'o', 'o', 0, 'b', 'a', 'r', 0};
 
 // [109] 允许标量初始化时有多余的大括号
 char *g44 = {"foo"};
+// [243] 支持联合体指派初始化器
+union { int a; char b[4]; } g50 = {.b[2]=0x12};
+union { int a; } g51[2] = {};
 
 // [113] 支持初始化结构体灵活数组成员
 typedef char T60[];
@@ -283,6 +286,14 @@ int main() {
 
   ASSERT(5, ((struct { int a,b,c; }){ .c=5 }).c);
   ASSERT(0, ((struct { int a,b,c; }){ .c=5 }).a);
+
+  printf("[243] 支持联合体指派初始化器\n");
+  ASSERT(0x00ff, ({ union { unsigned short a; char b[2]; } x={.b[0]=0xff}; x.a; }));
+  ASSERT(0xff00, ({ union { unsigned short a; char b[2]; } x={.b[1]=0xff}; x.a; }));
+
+  ASSERT(0x00120000, g50.a);
+  ASSERT(0, g51[0].a);
+  ASSERT(0, g51[1].a);
 
   printf("OK\n");
   return 0;
