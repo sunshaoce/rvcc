@@ -192,6 +192,8 @@ static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr);
 static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
                                int I);
+static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               Member *Mem);
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
 static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
                                 Type **NewTy);
@@ -1034,6 +1036,31 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   *Rest = Tok->Next;
 }
 
+// array-designator = "[" const-expr "]"
+//
+// C99 added the designated initializer to the language, which allows
+// programmers to move the "cursor" of an initializer to any element.
+// The syntax looks like this:
+//
+//   int x[10] = { 1, 2, [5]=3, 4, 5, 6, 7 };
+//
+// `[5]` moves the cursor to the 5th element, so the 5th element of x
+// is set to 3. Initialization then continues forward in order, so
+// 6th, 7th, 8th and 9th elements are initialized with 4, 5, 6 and 7,
+// respectively. Unspecified elements (in this case, 3rd and 4th
+// elements) are initialized with zero.
+//
+// Nesting is allowed, so the following initializer is valid:
+//
+//   int x[5][10] = { [5][8]=1, 2, 3 };
+//
+// It sets x[5][8], x[5][9] and x[6][0] to 1, 2 and 3, respectively.
+//
+// Use `.fieldname` to move the cursor for a struct initializer. E.g.
+//
+//   struct { int a, b, c; } x = { .c=5 };
+//
+// The above initializer sets x.c to 5.
 // 数组指派器，用于从指定位置开始初始化
 static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
   Token *Start = Tok;
@@ -1046,7 +1073,24 @@ static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
   return I;
 }
 
-// designation = ("[" const-expr "]")* "="? initializer
+// struct-designator = "." ident
+static Member *structDesignator(Token **Rest, Token *Tok, Type *Ty) {
+  Tok = skip(Tok, ".");
+  if (Tok->Kind != TK_IDENT)
+    errorTok(Tok, "expected a field designator");
+
+  for (Member *mem = Ty->Mems; mem; mem = mem->Next) {
+    if (mem->Name->Len == Tok->Len &&
+        !strncmp(mem->Name->Loc, Tok->Loc, Tok->Len)) {
+      *Rest = Tok->Next;
+      return mem;
+    }
+  }
+
+  errorTok(Tok, "struct has no such member");
+}
+
+// designation = ("[" const-expr "]" | "." ident)* "="? initializer
 // 进行指派
 static void designation(Token **Rest, Token *Tok, Initializer *Init) {
   // 多层[索引]的解析
@@ -1061,6 +1105,17 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
     arrayInitializer2(Rest, Tok, Init, I + 1);
     return;
   }
+
+  if (equal(Tok, ".") && Init->Ty->Kind == TY_STRUCT) {
+    Member *mem = structDesignator(&Tok, Tok, Init->Ty);
+    designation(&Tok, Tok, Init->Children[mem->Idx]);
+    Init->Expr = NULL;
+    structInitializer2(Rest, Tok, Init, mem->Next);
+    return;
+  }
+
+  if (equal(Tok, "."))
+    errorTok(Tok, "field name not in struct or union initializer");
 
   if (equal(Tok, "="))
     Tok = Tok->Next;
@@ -1152,7 +1207,7 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
       Tok = skip(Tok, ",");
 
     // 匹配到了指派器，那么就返回到上层函数进行初始化
-    if (equal(Tok, "[")) {
+    if (equal(Tok, "[") || equal(Tok, ".")) {
       *Rest = Start;
       return;
     }
@@ -1168,11 +1223,20 @@ static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 成员变量的链表
   Member *Mem = Init->Ty->Mems;
+  bool first = true;
 
   while (!consumeEnd(Rest, Tok)) {
     // Mem未指向Init->Ty->Mems，则说明Mem进行过Next的操作，就不是第一个
-    if (Mem != Init->Ty->Mems)
+    if (!first)
       Tok = skip(Tok, ",");
+    first = false;
+
+    if (equal(Tok, ".")) {
+      Mem = structDesignator(&Tok, Tok, Init->Ty);
+      designation(&Tok, Tok, Init->Children[Mem->Idx]);
+      Mem = Mem->Next;
+      continue;
+    }
 
     if (Mem) {
       // 处理成员
@@ -1186,14 +1250,23 @@ static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // structIntializer2 = initializer ("," initializer)* ","?
-static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               Member *Mem) {
   bool First = true;
 
   // 遍历所有成员变量
-  for (Member *Mem = Init->Ty->Mems; Mem && !isEnd(Tok); Mem = Mem->Next) {
+  for (; Mem && !isEnd(Tok); Mem = Mem->Next) {
+    Token *Start = Tok;
+
     if (!First)
       Tok = skip(Tok, ",");
     First = false;
+
+    if (equal(Tok, "[") || equal(Tok, ".")) {
+      *Rest = Start;
+      return;
+    }
+
     initializer2(&Tok, Tok, Init->Children[Mem->Idx]);
   }
   *Rest = Tok;
@@ -1251,7 +1324,7 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
       return;
     }
 
-    structInitializer2(Rest, Tok, Init);
+    structInitializer2(Rest, Tok, Init, Init->Ty->Mems);
     return;
   }
 
