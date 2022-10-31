@@ -91,6 +91,7 @@ typedef enum {
   ND_IF,        // "if"，条件判断
   ND_FOR,       // "for" 或 "while"，循环
   ND_BLOCK,     // { ... }，代码块
+  ND_FUNCALL,   // 函数调用
   ND_EXPR_STMT, // 表达式语句
   ND_VAR,       // 变量
   ND_NUM,       // 数字
@@ -115,6 +116,9 @@ struct Node {
 
   // 代码块
   Node *Body;
+
+  // 函数调用
+  char *FuncName; // 函数名
 
   Obj *Var; // 存储ND_VAR种类的变量
   int Val;  // 存储ND_NUM种类的值
