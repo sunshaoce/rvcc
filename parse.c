@@ -226,6 +226,7 @@ static Node *newAdd(Node *LHS, Node *RHS, Token *Tok);
 static Node *newSub(Node *LHS, Node *RHS, Token *Tok);
 static Node *mul(Token **Rest, Token *Tok);
 static Node *cast(Token **Rest, Token *Tok);
+static Member *getStructMember(Type *Ty, Token *Tok);
 static Type *structDecl(Token **Rest, Token *Tok);
 static Type *unionDecl(Token **Rest, Token *Tok);
 static Node *unary(Token **Rest, Token *Tok);
@@ -1076,15 +1077,26 @@ static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
 
 // struct-designator = "." ident
 static Member *structDesignator(Token **Rest, Token *Tok, Type *Ty) {
+  Token *Start = Tok;
   Tok = skip(Tok, ".");
   if (Tok->Kind != TK_IDENT)
     errorTok(Tok, "expected a field designator");
 
-  for (Member *mem = Ty->Mems; mem; mem = mem->Next) {
-    if (mem->Name->Len == Tok->Len &&
-        !strncmp(mem->Name->Loc, Tok->Loc, Tok->Len)) {
+  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
+    // Anonymous struct member
+    if (Mem->Ty->Kind == TY_STRUCT && !Mem->Name) {
+      if (getStructMember(Mem->Ty, Tok)) {
+        *Rest = Start;
+        return Mem;
+      }
+      continue;
+    }
+
+    // Regular struct member
+    if (Mem->Name->Len == Tok->Len &&
+        !strncmp(Mem->Name->Loc, Tok->Loc, Tok->Len)) {
       *Rest = Tok->Next;
-      return mem;
+      return Mem;
     }
   }
 
