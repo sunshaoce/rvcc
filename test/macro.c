@@ -410,6 +410,9 @@ int main() {
   printf("[248] [GNU] 支持__TIMESTAMP__宏\n");
   ASSERT(24, strlen(__TIMESTAMP__));
 
+  printf("[249] [GNU] 支持__BASE_FILE__宏\n");
+  ASSERT(0, strcmp(__BASE_FILE__, "test/macro.c"));
+
   printf("OK\n");
   return 0;
 }
