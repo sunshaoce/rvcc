@@ -413,6 +413,12 @@ int main() {
   printf("[249] [GNU] 支持__BASE_FILE__宏\n");
   ASSERT(0, strcmp(__BASE_FILE__, "test/macro.c"));
 
+  printf("[250] 支持__VA_OPT__\n");
+#define M30(buf, fmt, ...) sprintf(buf, fmt __VA_OPT__(, ) __VA_ARGS__)
+  ASSERT(0, ({ char buf[100]; M30(buf, "foo"); strcmp(buf, "foo"); }));
+  ASSERT(0, ({ char buf[100]; M30(buf, "foo%d", 3); strcmp(buf, "foo3"); }));
+  ASSERT(0, ({ char buf[100]; M30(buf, "foo%d%d", 3, 5); strcmp(buf, "foo35"); }));
+
   printf("OK\n");
   return 0;
 }

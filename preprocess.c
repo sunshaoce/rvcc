@@ -570,6 +570,13 @@ static Token *paste(Token *LHS, Token *RHS) {
   return Tok;
 }
 
+static bool hasVarargs(MacroArg *Args) {
+  for (MacroArg *AP = Args; AP; AP = AP->Next)
+    if (!strcmp(AP->Name, "__VA_ARGS__"))
+      return AP->Tok->Kind != TK_EOF;
+  return false;
+}
+
 // 将宏函数形参替换为指定的实参
 static Token *subst(Token *Tok, MacroArg *Args) {
   Token Head = {};
@@ -650,6 +657,17 @@ static Token *subst(Token *Tok, MacroArg *Args) {
         // 复制此终结符
         Cur = Cur->Next = copyToken(T);
       Tok = Tok->Next;
+      continue;
+    }
+
+    // If __VA_ARG__ is empty, __VA_OPT__(x) is expanded to the
+    // empty token list. Otherwise, __VA_OPT__(x) is expanded to x.
+    if (equal(Tok, "__VA_OPT__") && equal(Tok->Next, "(")) {
+      MacroArg *Arg = readMacroArgOne(&Tok, Tok->Next->Next, true);
+      if (hasVarargs(Args))
+        for (Token *T = Arg->Tok; T->Kind != TK_EOF; T = T->Next)
+          Cur = Cur->Next = T;
+      Tok = skip(Tok, ")");
       continue;
     }
 
