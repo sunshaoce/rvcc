@@ -117,6 +117,9 @@ int main() {
   ASSERT(3, π);
   ASSERT(3, ({ int あβ0¾=3; あβ0¾; }));
 
+  printf("[236] [GNU] 支持使用$作为标志符字符\n");
+  ASSERT(5, ({ int $$$=5; $$$; }));
+  
   printf("OK\n");
   return 0;
 }
