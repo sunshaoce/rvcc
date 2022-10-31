@@ -190,6 +190,8 @@ static Type *enumSpecifier(Token **Rest, Token *Tok);
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr);
+static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               int I);
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
 static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
                                 Type **NewTy);
@@ -1032,6 +1034,49 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   *Rest = Tok->Next;
 }
 
+// array-designator = "[" const-expr "]"
+//
+// C99 added the designated initializer to the language, which allows
+// programmers to move the "cursor" of an initializer to any element.
+// The syntax looks like this:
+//
+//   int x[10] = { 1, 2, [5]=3, 4, 5, 6, 7 };
+//
+// `[5]` moves the cursor to the 5th element, so the 5th element of x
+// is set to 3. Initialization then continues forward in order, so
+// 6th, 7th, 8th and 9th elements are initialized with 4, 5, 6 and 7,
+// respectively. Unspecified elements (in this case, 3rd and 4th
+// elements) are initialized with zero.
+//
+// Nesting is allowed, so the following initializer is valid:
+//
+//   int x[5][10] = { [5][8]=1, 2, 3 };
+//
+// It sets x[5][8], x[5][9] and x[6][0] to 1, 2 and 3, respectively.
+static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
+  Token *Start = Tok;
+  int I = constExpr(&Tok, Tok->Next);
+  if (I >= Ty->ArrayLen)
+    errorTok(Start, "array designator index exceeds array bounds");
+  *Rest = skip(Tok, "]");
+  return I;
+}
+
+// designation = ("[" const-expr "]")* "=" initializer
+static void designation(Token **Rest, Token *Tok, Initializer *Init) {
+  if (equal(Tok, "[")) {
+    if (Init->Ty->Kind != TY_ARRAY)
+      errorTok(Tok, "array index in non-array initializer");
+    int I = arrayDesignator(&Tok, Tok, Init->Ty);
+    designation(&Tok, Tok, Init->Children[I]);
+    arrayInitializer2(Rest, Tok, Init, I + 1);
+    return;
+  }
+
+  Tok = skip(Tok, "=");
+  initializer2(Rest, Tok, Init);
+}
+
 // 计算数组初始化元素个数
 static int countArrayInitElements(Token *Tok, Type *Ty) {
   Initializer *Dummy = newInitializer(Ty->Base, false);
@@ -1050,6 +1095,7 @@ static int countArrayInitElements(Token *Tok, Type *Ty) {
 // arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
 static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
+  bool first = true;
 
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
   if (Init->IsFlexible) {
@@ -1060,8 +1106,15 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 遍历数组
   for (int I = 0; !consumeEnd(Rest, Tok); I++) {
-    if (I > 0)
+    if (!first)
       Tok = skip(Tok, ",");
+    first = false;
+
+    if (equal(Tok, "[")) {
+      I = arrayDesignator(&Tok, Tok, Init->Ty);
+      designation(&Tok, Tok, Init->Children[I]);
+      continue;
+    }
 
     // 正常解析元素
     if (I < Init->Ty->ArrayLen)
@@ -1073,7 +1126,8 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // arrayIntializer2 = initializer ("," initializer)* ","?
-static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                              int I) {
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
   if (Init->IsFlexible) {
     int Len = countArrayInitElements(Tok, Init->Ty);
@@ -1081,9 +1135,16 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   }
 
   // 遍历数组
-  for (int I = 0; I < Init->Ty->ArrayLen && !isEnd(Tok); I++) {
+  for (; I < Init->Ty->ArrayLen && !isEnd(Tok); I++) {
+    Token *Start = Tok;
     if (I > 0)
       Tok = skip(Tok, ",");
+
+    if (equal(Tok, "[")) {
+      *Rest = Start;
+      return;
+    }
+
     initializer2(&Tok, Tok, Init->Children[I]);
   }
   *Rest = Tok;
@@ -1157,7 +1218,7 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
       arrayInitializer1(Rest, Tok, Init);
     else
       // 不存在括号的情况
-      arrayInitializer2(Rest, Tok, Init);
+      arrayInitializer2(Rest, Tok, Init, 0);
     return;
   }
 
