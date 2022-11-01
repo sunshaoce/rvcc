@@ -180,6 +180,7 @@ static Node *CurrentSwitch;
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
 //         | num
@@ -3093,6 +3094,7 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
 //         | num
@@ -3145,6 +3147,16 @@ static Node *primary(Token **Rest, Token *Tok) {
     Node *Nd = unary(Rest, Tok->Next);
     addType(Nd);
     return newULong(Nd->Ty->Align, Tok);
+  }
+
+  // "__builtin_types_compatible_p" "(" typeName, typeName, ")"
+  if (equal(Tok, "__builtin_types_compatible_p")) {
+    Tok = skip(Tok->Next, "(");
+    Type *T1 = typename(&Tok, Tok);
+    Tok = skip(Tok, ",");
+    Type *T2 = typename(&Tok, Tok);
+    *Rest = skip(Tok, ")");
+    return newNum(isCompatible(T1, T2), Start);
   }
 
   // ident

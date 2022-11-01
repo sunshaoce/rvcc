@@ -47,10 +47,57 @@ bool isFloNum(Type *Ty) {
 // 判断是否为数字
 bool isNumeric(Type *Ty) { return isInteger(Ty) || isFloNum(Ty); }
 
+bool isCompatible(Type *T1, Type *T2) {
+  if (T1 == T2)
+    return true;
+
+  if (T1->Origin)
+    return isCompatible(T1->Origin, T2);
+
+  if (T2->Origin)
+    return isCompatible(T1, T2->Origin);
+
+  if (T1->Kind != T2->Kind)
+    return false;
+
+  switch (T1->Kind) {
+  case TY_CHAR:
+  case TY_SHORT:
+  case TY_INT:
+  case TY_LONG:
+    return T1->IsUnsigned == T2->IsUnsigned;
+  case TY_FLOAT:
+  case TY_DOUBLE:
+    return true;
+  case TY_PTR:
+    return isCompatible(T1->Base, T2->Base);
+  case TY_FUNC: {
+    if (!isCompatible(T1->ReturnTy, T2->ReturnTy))
+      return false;
+    if (T1->IsVariadic != T2->IsVariadic)
+      return false;
+
+    Type *p1 = T1->Params;
+    Type *p2 = T2->Params;
+    for (; p1 && p2; p1 = p1->Next, p2 = p2->Next)
+      if (!isCompatible(p1, p2))
+        return false;
+    return p1 == NULL && p2 == NULL;
+  }
+  case TY_ARRAY:
+    if (!isCompatible(T1->Base, T2->Base))
+      return false;
+    return T1->ArrayLen < 0 && T2->ArrayLen < 0 && T1->ArrayLen == T2->ArrayLen;
+  default:
+    return false;
+  }
+}
+
 // 复制类型
 Type *copyType(Type *Ty) {
   Type *Ret = calloc(1, sizeof(Type));
   *Ret = *Ty;
+  Ret->Origin = Ty;
   return Ret;
 }
 
