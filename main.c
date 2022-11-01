@@ -247,6 +247,10 @@ static void parseArgs(int Argc, char **Argv) {
   // 不存在输入文件时报错
   if (InputPaths.Len == 0)
     error("no input files");
+
+  // -E implies that the input is the C macro language.
+  if (OptE)
+    OptX = FILE_C;
 }
 
 // 打开需要写入的文件
