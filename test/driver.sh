@@ -199,4 +199,16 @@ check -idirafter
 echo "#include \"idirafter\"" | $rvcc -idirafter $tmp/dir1 -I$tmp/dir2 -E - | grep -q bar
 check -idirafter
 
+# [266] 支持-fcommon和-fno-common标志
+# -fcommon
+echo 'int foo;' | $rvcc -S -o- - | grep -q '\.comm foo'
+check '-fcommon (default)'
+
+echo 'int foo;' | $rvcc -fcommon -S -o- - | grep -q '\.comm foo'
+check '-fcommon'
+
+# -fno-common
+echo 'int foo;' | $rvcc -fno-common -S -o- - | grep -q '^foo:'
+check '-fno-common'
+
 echo OK
