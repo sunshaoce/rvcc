@@ -3247,6 +3247,14 @@ static Node *primary(Token **Rest, Token *Tok) {
     VarScope *S = findVar(Tok);
     *Rest = Tok->Next;
 
+    // For "static inline" function
+    if (S && S->Var && S->Var->IsFunction) {
+      if (CurrentFn)
+        strArrayPush(&CurrentFn->Refs, S->Var->Name);
+      else
+        S->Var->IsRoot = true;
+    }
+
     if (S) {
       // 是否为变量
       if (S->Var)
@@ -3341,6 +3349,29 @@ static void resolveGotoLabels(void) {
   Labels = NULL;
 }
 
+static Obj *findFunc(char *name) {
+  Scope *Sc = Scp;
+  while (Sc->Next)
+    Sc = Sc->Next;
+
+  for (VarScope *Sc2 = Sc->Vars; Sc2; Sc2 = Sc2->Next)
+    if (!strcmp(Sc2->Name, name) && Sc2->Var && Sc2->Var->IsFunction)
+      return Sc2->Var;
+  return NULL;
+}
+
+static void markLive(Obj *Var) {
+  if (!Var->IsFunction || Var->IsLive)
+    return;
+  Var->IsLive = true;
+
+  for (int I = 0; I < Var->Refs.Len; I++) {
+    Obj *Fn = findFunc(Var->Refs.Data[I]);
+    if (Fn)
+      markLive(Fn);
+  }
+}
+
 // functionDefinition = declspec declarator "(" ")" "{" compoundStmt*
 static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Type *Ty = declarator(&Tok, Tok, BaseTy);
@@ -3352,6 +3383,7 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Fn->IsDefinition = !consume(&Tok, Tok, ";");
   Fn->IsStatic = Attr->IsStatic || (Attr->IsInline && !Attr->IsExtern);
   Fn->IsInline = Attr->IsInline;
+  Fn->IsRoot = !(Fn->IsStatic && Fn->IsInline);
 
   // 判断是否没有函数定义
   if (!Fn->IsDefinition)
@@ -3460,6 +3492,10 @@ Obj *parse(Token *Tok) {
     // 全局变量
     Tok = globalVariable(Tok, BaseTy, &Attr);
   }
+
+  for (Obj *Var = Globals; Var; Var = Var->Next)
+    if (Var->IsRoot)
+      markLive(Var);
 
   return Globals;
 }
