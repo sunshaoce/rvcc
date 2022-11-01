@@ -390,7 +390,28 @@ int main() {
 #define M14(x, ...) add6(1,2,x,__VA_ARGS__,6)
   ASSERT(21, M14(3,4,5));
 
+  printf("[253] [GNU] 支持GCC风格的可变参数宏\n");
+#define M14(args...) 3
+  ASSERT(3, M14());
+
 #define M14(x, ...) x
+  ASSERT(5, M14(5));
+
+  printf("[253] [GNU] 支持GCC风格的可变参数宏\n");
+#define M14(args...) args
+  ASSERT(2, M14() 2);
+  ASSERT(5, M14(5));
+
+#define M14(args...) add2(args)
+  ASSERT(8, M14(2, 6));
+
+#define M14(args...) add6(1,2,args,6)
+  ASSERT(21, M14(3,4,5));
+
+#define M14(x, args...) add6(1,2,x,args,6)
+  ASSERT(21, M14(3,4,5));
+
+#define M14(x, args...) x
   ASSERT(5, M14(5));
 
 // [207] 解析数值终结符为pp-number
