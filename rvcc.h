@@ -90,6 +90,8 @@ struct Token {
 void error(char *Fmt, ...);
 void errorAt(char *Loc, char *Fmt, ...);
 void errorTok(Token *Tok, char *Fmt, ...);
+// 警告函数
+void warnTok(Token *Tok, char *Fmt, ...);
 // 判断Token与Str的关系
 bool equal(Token *Tok, char *Str);
 Token *skip(Token *Tok, char *Str);
