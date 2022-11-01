@@ -134,12 +134,14 @@ static Node *CurrentSwitch;
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
 //        | "do" stmt "while" "(" expr ")" ";"
+//        | asmStmt
 //        | "goto" ident ";"
 //        | "break" ";"
 //        | "continue" ";"
 //        | ident ":" stmt
 //        | "{" compoundStmt
 //        | exprStmt
+// asmStmt = "asm" ("volatile" | "inline")* "(" stringLiteral ")"
 // exprStmt = expr? ";"
 // expr = assign ("," expr)?
 // assign = conditional (assignOp assign)?
@@ -1694,6 +1696,22 @@ static bool isTypename(Token *Tok) {
   return findTypedef(Tok);
 }
 
+// asmStmt = "asm" ("volatile" | "inline")* "(" stringLiteral ")"
+static Node *asmStmt(Token **Rest, Token *Tok) {
+  Node *Nd = newNode(ND_ASM, Tok);
+  Tok = Tok->Next;
+
+  while (equal(Tok, "volatile") || equal(Tok, "inline"))
+    Tok = Tok->Next;
+
+  Tok = skip(Tok, "(");
+  if (Tok->Kind != TK_STR || Tok->Ty->Base->Kind != TY_CHAR)
+    errorTok(Tok, "expected string literal");
+  Nd->AsmStr = Tok->Str;
+  *Rest = skip(Tok->Next, ")");
+  return Nd;
+}
+
 // 解析语句
 // stmt = "return" expr? ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
@@ -1703,6 +1721,7 @@ static bool isTypename(Token *Tok) {
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
 //        | "do" stmt "while" "(" expr ")" ";"
+//        | asmStmt
 //        | "goto" ident ";"
 //        | "break" ";"
 //        | "continue" ";"
@@ -1884,6 +1903,10 @@ static Node *stmt(Token **Rest, Token *Tok) {
     ContLabel = Cont;
     return Nd;
   }
+
+  // asmStmt
+  if (equal(Tok, "asm"))
+    return asmStmt(Rest, Tok);
 
   // "goto" ident ";"
   if (equal(Tok, "goto")) {
