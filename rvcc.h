@@ -74,6 +74,7 @@ struct Token {
   char *Str;      // 字符串字面量，包括'\0'
 
   int LineNo; // 行号
+  bool AtBOL; // 终结符在行首（begin of line）时为true
 };
 
 // 去除了static用以在多个文件间访问
