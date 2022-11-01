@@ -5,10 +5,14 @@
 // 注意 ~ 应替换为具体的 /home/用户名 的路径
 static char *RVPath = "";
 
+typedef enum { FILE_NONE, FILE_C, FILE_ASM, FILE_OBJ } FileType;
+
 // 引入路径区
 StringArray IncludePaths;
 bool OptFCommon = true;
 
+// -x选项
+static FileType OptX;
 static StringArray OptInclude;
 // -E选项
 static bool OptE;
@@ -41,7 +45,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter", "-include"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -69,6 +73,16 @@ static void define(char *Str) {
   else
     // 不存在赋值，则设为1
     defineMacro(Str, "1");
+}
+
+static FileType parseOptX(char *S) {
+  if (!strcmp(S, "c"))
+    return FILE_C;
+  if (!strcmp(S, "assembler"))
+    return FILE_ASM;
+  if (!strcmp(S, "none"))
+    return FILE_NONE;
+  error("<command line>: unknown argument for -x: %s", S);
 }
 
 // 解析传入程序的参数
@@ -176,6 +190,18 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-include
     if (!strcmp(Argv[I], "-include")) {
       strArrayPush(&OptInclude, Argv[++I]);
+      continue;
+    }
+
+    // 解析-x
+    if (!strcmp(Argv[I], "-x")) {
+      OptX = parseOptX(Argv[++I]);
+      continue;
+    }
+
+    // 解析-x
+    if (!strncmp(Argv[I], "-x", 2)) {
+      OptX = parseOptX(Argv[I] + 2);
       continue;
     }
 
@@ -571,6 +597,21 @@ static void runLinker(StringArray *Inputs, char *Output) {
   runSubprocess(Arr.Data);
 }
 
+static FileType getFileType(char *Filename) {
+  if (endsWith(Filename, ".o"))
+    return FILE_OBJ;
+
+  if (OptX != FILE_NONE)
+    return OptX;
+
+  if (endsWith(Filename, ".c"))
+    return FILE_C;
+  if (endsWith(Filename, ".s"))
+    return FILE_ASM;
+
+  error("<command line>: unknown file extension: %s", Filename);
+}
+
 // 编译器驱动流程
 //
 // 源文件
@@ -625,26 +666,27 @@ int main(int Argc, char **Argv) {
     else
       Output = replaceExtn(Input, ".o");
 
+    FileType Ty = getFileType(Input);
+
     // 处理.o文件
-    if (endsWith(Input, ".o")) {
+    if (Ty == FILE_OBJ) {
       // 存入链接器选项中
       strArrayPush(&LdArgs, Input);
       continue;
     }
 
     // 处理.s文件
-    if (endsWith(Input, ".s")) {
+    if (Ty == FILE_ASM) {
       // 如果没有指定-S，那么需要进行汇编
       if (!OptS) {
         assemble(Input, Output);
-        strArrayPush(&LdArgs, Output);
+        // strArrayPush(&LdArgs, Output);
       }
       continue;
     }
 
     // 处理.c文件
-    if (!endsWith(Input, ".c") && strcmp(Input, "-"))
-      error("unknown file extension: %s", Input);
+    assert(Ty == FILE_C);
 
     // 只进行解析
     if (OptE) {
