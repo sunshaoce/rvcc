@@ -70,9 +70,16 @@ static Token *preprocess2(Token *Tok) {
       if (Tok->Kind != TK_STR)
         errorTok(Tok, "expected a filename");
 
-      // 以当前文件所在目录为起点
-      // 路径为：终结符文件名所在的文件夹路径/当前终结符名
-      char *Path = format("%s/%s", dirname(strdup(Tok->File->Name)), Tok->Str);
+      // 文件路径
+      char *Path;
+      if (Tok->Str[0] == '/')
+        // "/"开头的视为绝对路径
+        Path = Tok->Str;
+      else
+        // 以当前文件所在目录为起点
+        // 路径为：终结符文件名所在的文件夹路径/当前终结符名
+        Path = format("%s/%s", dirname(strdup(Tok->File->Name)), Tok->Str);
+
       // 词法解析文件
       Token *Tok2 = tokenizeFile(Path);
       if (!Tok2)
