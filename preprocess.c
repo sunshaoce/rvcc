@@ -596,6 +596,22 @@ static Token *subst(Token *Tok, MacroArg *Args) {
       continue;
     }
 
+    // [GNU] If __VA_ARG__ is empty, `,##__VA_ARGS__` is expanded
+    // to the empty token list. Otherwise, its expaned to `,` and
+    // __VA_ARGS__.
+    if (equal(Tok, ",") && equal(Tok->Next, "##")) {
+      MacroArg *Arg = findArg(Args, Tok->Next->Next);
+      if (Arg && !strcmp(Arg->Name, "__VA_ARGS__")) {
+        if (Arg->Tok->Kind == TK_EOF) {
+          Tok = Tok->Next->Next->Next;
+        } else {
+          Cur = Cur->Next = copyToken(Tok);
+          Tok = Tok->Next->Next;
+        }
+        continue;
+      }
+    }
+
     // ##及右边，用于连接终结符
     if (equal(Tok, "##")) {
       if (Cur == &Head)
