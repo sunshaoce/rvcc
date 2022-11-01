@@ -1737,7 +1737,7 @@ static void emitData(Obj *Prog) {
       error("Align can not be 0!");
     printLn("  .align %d", simpleLog2(Var->Align));
 
-    if (Var->IsTentative) {
+    if (OptFCommon && Var->IsTentative) {
       printLn("  .comm %s, %d, %d", Var->Name, Var->Ty->Size, Align);
       continue;
     }
