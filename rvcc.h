@@ -171,6 +171,11 @@ struct Obj {
   Obj *Locals;   // 本地变量
   Obj *VaArea;   // 可变参数区域
   int StackSize; // 栈大小
+
+  // 静态内联函数
+  bool IsLive;
+  bool IsRoot;
+  StringArray Refs;
 };
 
 // 全局变量可被 常量表达式 或者 指向其他全局变量的指针 初始化。
