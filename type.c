@@ -112,8 +112,9 @@ Type *pointerTo(Type *Base) {
 
 // 函数类型，并赋返回类型
 Type *funcType(Type *ReturnTy) {
-  Type *Ty = calloc(1, sizeof(Type));
-  Ty->Kind = TY_FUNC;
+  // The C spec disallows sizeof(<function type>), but
+  // GCC allows that and the expression is evaluated to 1.
+  Type *Ty = newType(TY_FUNC, 1, 1);
   Ty->ReturnTy = ReturnTy;
   return Ty;
 }
