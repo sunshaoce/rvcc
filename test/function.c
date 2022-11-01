@@ -459,6 +459,11 @@ Ty21 struct_test38(void) {
                 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
 }
 
+// [260] 将inline函数作为static函数
+inline int inline_fn(void) {
+  return 3;
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -1207,6 +1212,9 @@ int main() {
 
   printf("[206] 支持解引用函数\n");
   ASSERT(5, (***add2)(2, 3));
+
+  printf("[260] 将inline函数作为static函数\n");
+  ASSERT(3, inline_fn());
 
   printf("OK\n");
 }
