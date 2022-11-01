@@ -118,6 +118,9 @@ int main() {
   // [149] 将long double作为double的别名
   ASSERT(8, sizeof(long double));
 
+  printf("[257] [GNU] 支持sizeof函数类型\n");
+  ASSERT(1, sizeof(main));
+
   printf("OK\n");
   return 0;
 }
