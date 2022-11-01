@@ -788,7 +788,7 @@ static bool expandMacro(Token **Rest, Token *Tok) {
 }
 
 // 搜索引入路径区
-static char *searchIncludePaths(char *Filename) {
+char *searchIncludePaths(char *Filename) {
   // 以"/"开头的视为绝对路径
   if (Filename[0] == '/')
     return Filename;
