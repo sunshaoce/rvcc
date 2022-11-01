@@ -9,6 +9,7 @@ static char *RVPath = "";
 StringArray IncludePaths;
 bool OptFCommon = true;
 
+static StringArray OptInclude;
 // -E选项
 static bool OptE;
 // -S选项
@@ -40,7 +41,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -169,6 +170,12 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-U
     if (!strncmp(Argv[I], "-U", 2)) {
       undefMacro(Argv[I] + 2);
+      continue;
+    }
+
+    // 解析-include
+    if (!strcmp(Argv[I], "-include")) {
+      strArrayPush(&OptInclude, Argv[++I]);
       continue;
     }
 
@@ -356,13 +363,48 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
+static Token *mustTokenizeFile(char *Path) {
+  Token *Tok = tokenizeFile(Path);
+  if (!Tok)
+    error("%s: %s", Path, strerror(errno));
+  return Tok;
+}
+
+static Token *appendTokens(Token *Tok1, Token *Tok2) {
+  if (!Tok1 || Tok1->Kind == TK_EOF)
+    return Tok2;
+
+  Token *t = Tok1;
+  while (t->Next->Kind != TK_EOF)
+    t = t->Next;
+  t->Next = Tok2;
+  return Tok1;
+}
+
 // 编译C文件到汇编文件
 static void cc1(void) {
-  // 解析文件，生成终结符流
-  Token *Tok = tokenizeFile(BaseFile);
-  // 终结符流生成失败，对应文件报错
-  if (!Tok)
-    error("%s: %s", BaseFile, strerror(errno));
+  Token *Tok = NULL;
+
+  // Process -include option
+  for (int I = 0; I < OptInclude.Len; I++) {
+    char *Incl = OptInclude.Data[I];
+
+    char *Path;
+    if (fileExists(Incl)) {
+      Path = Incl;
+    } else {
+      Path = searchIncludePaths(Incl);
+      if (!Path)
+        error("-include: %s: %s", Incl, strerror(errno));
+    }
+
+    Token *Tok2 = mustTokenizeFile(Path);
+    Tok = appendTokens(Tok, Tok2);
+  }
+
+  // Tokenize and parse.
+  Token *tok2 = mustTokenizeFile(BaseFile);
+  Tok = appendTokens(Tok, tok2);
 
   // 预处理
   Tok = preprocess(Tok);
