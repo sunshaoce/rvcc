@@ -6,6 +6,9 @@ static char *CurrentFilename;
 // 输入的字符串
 static char *CurrentInput;
 
+// 位于行首时为真
+static bool AtBOL;
+
 // 输出错误信息
 // static文件内可以访问的函数
 // Fmt为传入的字符串， ... 为可变参数，表示Fmt后面所有的参数
@@ -113,6 +116,9 @@ static Token *newToken(TokenKind Kind, char *Start, char *End) {
   Tok->Kind = Kind;
   Tok->Loc = Start;
   Tok->Len = End - Start;
+  // 读取是否为行首，然后设置为false
+  Tok->AtBOL = AtBOL;
+  AtBOL = false;
   return Tok;
 }
 
@@ -454,6 +460,9 @@ Token *tokenize(char *Filename, char *P) {
   Token Head = {};
   Token *Cur = &Head;
 
+  // 文件开始设置为行首
+  AtBOL = true;
+
   while (*P) {
     // 跳过行注释
     if (startsWith(P, "//")) {
@@ -470,6 +479,13 @@ Token *tokenize(char *Filename, char *P) {
       if (!Q)
         errorAt(P, "unclosed block comment");
       P = Q + 2;
+      continue;
+    }
+
+    // 匹配换行符，设置为行首
+    if (*P == '\n') {
+      P++;
+      AtBOL = true;
       continue;
     }
 
