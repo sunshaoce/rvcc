@@ -15,6 +15,8 @@ typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned long uint64_t;
 
+typedef unsigned long size_t;
+
 typedef struct FILE FILE;
 extern FILE *stdin;
 extern FILE *stdout;
@@ -86,6 +88,8 @@ int execvp(char *file, char **argv);
 void _exit(int code);
 int wait(int *wstatus);
 int atexit(void (*)(void));
+FILE *open_memstream(char **ptr, size_t *sizeloc);
+char *dirname(char *path);
 """)
 
 # 对文件内容进行替换
