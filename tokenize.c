@@ -84,6 +84,15 @@ void errorTok(Token *Tok, char *Fmt, ...) {
   exit(1);
 }
 
+// Tok解析警告
+void warnTok(Token *Tok, char *Fmt, ...) {
+  va_list VA;
+  va_start(VA, Fmt);
+  verrorAt(Tok->File->Name, Tok->File->Contents, Tok->LineNo, Tok->Loc, Fmt,
+           VA);
+  va_end(VA);
+}
+
 // 判断Tok的值是否等于指定值，没有用char，是为了后续拓展
 bool equal(Token *Tok, char *Str) {
   // 比较字符串LHS（左部），RHS（右部）的前N位，S2的长度应大于等于N.

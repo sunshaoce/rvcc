@@ -3,6 +3,20 @@
 // 是否行首是#号
 static bool isHash(Token *Tok) { return Tok->AtBOL && equal(Tok, "#"); }
 
+// 一些预处理器允许#include等指示，在换行前有多余的终结符
+// 此函数跳过这些终结符
+static Token *skipLine(Token *Tok) {
+  // 在行首，正常情况
+  if (Tok->AtBOL)
+    return Tok;
+  // 提示多余的字符
+  warnTok(Tok, "extra token");
+  // 跳过终结符，直到行首
+  while (!Tok->AtBOL)
+    Tok = Tok->Next;
+  return Tok;
+}
+
 static Token *copyToken(Token *Tok) {
   Token *T = calloc(1, sizeof(Token));
   *T = *Tok;
@@ -63,8 +77,10 @@ static Token *preprocess2(Token *Tok) {
       Token *Tok2 = tokenizeFile(Path);
       if (!Tok2)
         errorTok(Tok, "%s", strerror(errno));
+      // 处理多余的终结符
+      Tok = skipLine(Tok->Next);
       // 将Tok2接续到Tok->Next的位置
-      Tok = append(Tok2, Tok->Next);
+      Tok = append(Tok2, Tok);
       continue;
     }
 
