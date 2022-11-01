@@ -180,6 +180,7 @@ static Node *CurrentSwitch;
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "_Generic" genericSelection
 //         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
@@ -3079,6 +3080,49 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
   return Nd;
 }
 
+// genericSelection = "(" assign "," generic-assoc ("," generic-assoc)* ")"
+//
+// generic-assoc = type-name ":" assign
+//               | "default" ":" assign
+static Node *genericSelection(Token **rest, Token *tok) {
+  Token *start = tok;
+  tok = skip(tok, "(");
+
+  Node *ctrl = assign(&tok, tok);
+  addType(ctrl);
+
+  Type *t1 = ctrl->Ty;
+  if (t1->Kind == TY_FUNC)
+    t1 = pointerTo(t1);
+  else if (t1->Kind == TY_ARRAY)
+    t1 = pointerTo(t1->Base);
+
+  Node *ret = NULL;
+
+  while (!consume(rest, tok, ")")) {
+    tok = skip(tok, ",");
+
+    if (equal(tok, "default")) {
+      tok = skip(tok->Next, ":");
+      Node *node = assign(&tok, tok);
+      if (!ret)
+        ret = node;
+      continue;
+    }
+
+    Type *t2 = typename(&tok, tok);
+    tok = skip(tok, ":");
+    Node *node = assign(&tok, tok);
+    if (isCompatible(t1, t2))
+      ret = node;
+  }
+
+  if (!ret)
+    errorTok(start, "controlling expression type not compatible with"
+                    " any generic association type");
+  return ret;
+}
+
 // 解析括号、数字、变量
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
@@ -3086,6 +3130,7 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "_Generic" genericSelection
 //         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
@@ -3140,6 +3185,9 @@ static Node *primary(Token **Rest, Token *Tok) {
     addType(Nd);
     return newULong(Nd->Ty->Align, Tok);
   }
+
+  if (equal(Tok, "_Generic"))
+    return genericSelection(Rest, Tok->Next);
 
   // "__builtin_types_compatible_p" "(" typeName, typeName, ")"
   if (equal(Tok, "__builtin_types_compatible_p")) {
