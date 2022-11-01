@@ -3453,6 +3453,8 @@ static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
 
     if (equal(Tok, "="))
       GVarInitializer(&Tok, Tok->Next, Var);
+    else if (!Attr->IsExtern)
+      Var->IsTentative = true;
   }
   return Tok;
 }
@@ -3466,6 +3468,33 @@ static bool isFunction(Token *Tok) {
   Type Dummy = {};
   Type *Ty = declarator(&Tok, Tok, &Dummy);
   return Ty->Kind == TY_FUNC;
+}
+
+// Remove redundant tentative definitions.
+static void scanGlobals(void) {
+  Obj Head;
+  Obj *Cur = &Head;
+
+  for (Obj *Var = Globals; Var; Var = Var->Next) {
+    if (!Var->IsTentative) {
+      Cur = Cur->Next = Var;
+      continue;
+    }
+
+    // Find another definition of the same identifier.
+    Obj *Var2 = Globals;
+    for (; Var2; Var2 = Var2->Next)
+      if (Var != Var2 && Var2->IsDefinition && !strcmp(Var->Name, Var2->Name))
+        break;
+
+    // If there's another definition, the tentative definition
+    // is redundant
+    if (!Var2)
+      Cur = Cur->Next = Var;
+  }
+
+  Cur->Next = NULL;
+  Globals = Head.Next;
 }
 
 // 语法解析入口函数
@@ -3497,5 +3526,7 @@ Obj *parse(Token *Tok) {
     if (Var->IsRoot)
       markLive(Var);
 
+  // Remove redundant tentative definitions.
+  scanGlobals();
   return Globals;
 }
