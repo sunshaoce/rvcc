@@ -97,4 +97,15 @@ echo 'int main() {}' > $tmp/foo.c
 [ -f $tmp/a.out ]
 check a.out
 
+# -E
+# [162] 支持-E选项
+echo foo > $tmp/out
+echo "#include \"$tmp/out\"" | $rvcc -E - | grep -q foo
+check -E
+
+echo foo > $tmp/out1
+echo "#include \"$tmp/out1\"" | $rvcc -E -o $tmp/out2 -
+cat $tmp/out2 | grep -q foo
+check '-E and -o'
+
 echo OK
