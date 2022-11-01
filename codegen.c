@@ -1729,9 +1729,19 @@ static void emitData(Obj *Prog) {
     }
 
     printLn("  # 对齐全局变量");
-    if (!Var->Ty->Align)
+    // TODO移植到前面的commit
+    int Align = (Var->Ty->Kind == TY_ARRAY && Var->Ty->Size >= 16)
+                    ? MAX(16, Var->Align)
+                    : Var->Align;
+    if (!Var->Align)
       error("Align can not be 0!");
     printLn("  .align %d", simpleLog2(Var->Align));
+
+    if (Var->IsTentative) {
+      printLn("  .comm %s, %d, %d", Var->Name, Var->Ty->Size, Align);
+      continue;
+    }
+
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("\n  # 数据段标签");

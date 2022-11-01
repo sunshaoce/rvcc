@@ -22,6 +22,9 @@ int *ext2 = &ext1;
 int ext3 = 7;
 int ext_fn1(int x) { return x; }
 int ext_fn2(int x) { return x; }
+// [265] 支持不定定义
+int common_ext2 = 3;
+static int common_local;
 
 // [126] 支持函数返回短整数
 int false_fn() { return 512; }
