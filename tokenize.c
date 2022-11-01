@@ -358,10 +358,6 @@ static Token *readIntLiteral(char *Start) {
     U = true;
   }
 
-  // 匹配完成后不应该还有数字
-  if (isalnum(*P))
-    errorAt(P, "invalid digit");
-
   // 推断出类型，采用能存下当前数值的类型
   Type *Ty;
   if (Base == 10) {
@@ -393,6 +389,37 @@ static Token *readIntLiteral(char *Start) {
   // 构造NUM的终结符
   Token *Tok = newToken(TK_NUM, Start, P);
   Tok->Val = Val;
+  Tok->Ty = Ty;
+  return Tok;
+}
+
+// 读取数字
+static Token *readNumber(char *Start) {
+  // 尝试解析整型常量
+  Token *Tok = readIntLiteral(Start);
+  // 不带e或者f后缀，则为整型
+  if (!strchr(".eEfF", Start[Tok->Len]))
+    return Tok;
+
+  // 如果不是整型，那么一定是浮点数
+  char *End;
+  double Val = strtod(Start, &End);
+
+  // 处理浮点数后缀
+  Type *Ty;
+  if (*End == 'f' || *End == 'F') {
+    Ty = TyFloat;
+    End++;
+  } else if (*End == 'l' || *End == 'L') {
+    Ty = TyDouble;
+    End++;
+  } else {
+    Ty = TyDouble;
+  }
+
+  // 构建浮点数终结符
+  Tok = newToken(TK_NUM, Start, End);
+  Tok->FVal = Val;
   Tok->Ty = Ty;
   return Tok;
 }
@@ -452,10 +479,9 @@ Token *tokenize(char *Filename, char *P) {
       continue;
     }
 
-    // 解析数字
-    if (isdigit(*P)) {
-      // 读取数字字面量
-      Cur->Next = readIntLiteral(P);
+    // 解析整型和浮点数
+    if (isdigit(*P) || (*P == '.' && isdigit(P[1]))) {
+      Cur->Next = readNumber(P);
       // 指针前进
       Cur = Cur->Next;
       P += Cur->Len;

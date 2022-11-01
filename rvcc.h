@@ -53,6 +53,7 @@ struct Token {
   TokenKind Kind; // 种类
   Token *Next;    // 指向下一终结符
   int64_t Val;    // TK_NUM值
+  double FVal;    // TK_NUM浮点值
   char *Loc;      // 在解析的字符串内的位置
   int Len;        // 长度
   Type *Ty;       // TK_NUM或TK_STR使用
@@ -209,6 +210,7 @@ struct Node {
 
   Obj *Var;    // 存储ND_VAR种类的变量
   int64_t Val; // 存储ND_NUM种类的值
+  double FVal; // 存储ND_NUM种类的浮点值
 };
 
 // 类型转换，将表达式的值转换为另一种类型
@@ -228,6 +230,8 @@ typedef enum {
   TY_SHORT,  // short短整型
   TY_INT,    // int整型
   TY_LONG,   // long长整型
+  TY_FLOAT,  // float类型
+  TY_DOUBLE, // double类型
   TY_ENUM,   // enum枚举类型
   TY_PTR,    // 指针
   TY_FUNC,   // 函数
@@ -288,8 +292,13 @@ extern Type *TyUShort;
 extern Type *TyUInt;
 extern Type *TyULong;
 
+extern Type *TyFloat;
+extern Type *TyDouble;
+
 // 判断是否为整型
 bool isInteger(Type *TY);
+// 判断是否为浮点类型
+bool isFloNum(Type *Ty);
 // 复制类型
 Type *copyType(Type *Ty);
 // 构建一个指针类型，并指向基类

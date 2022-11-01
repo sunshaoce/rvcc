@@ -240,10 +240,35 @@ static void genExpr(Node *Nd) {
   case ND_NULL_EXPR:
     return;
   // 加载数字到a0
-  case ND_NUM:
-    printLn("  # 将%d加载到a0中", Nd->Val);
-    printLn("  li a0, %ld", Nd->Val);
-    return;
+
+  // float和uint32、double和uint64 共用一份内存空间
+  case ND_NUM: {
+    union {
+      float F32;
+      double F64;
+      uint32_t U32;
+      uint64_t U64;
+    } U;
+
+    switch (Nd->Ty->Kind) {
+    case TY_FLOAT:
+      U.F32 = Nd->FVal;
+      printLn("  # 将a0转换到float类型值为%f的fa0中", Nd->FVal);
+      printLn("  li a0, %u  # float %f", U.U32, Nd->FVal);
+      printLn("  fmv.w.x fa0, a0");
+      return;
+    case TY_DOUBLE:
+      printLn("  # 将a0转换到double类型值为%f的fa0中", Nd->FVal);
+      U.F64 = Nd->FVal;
+      printLn("  li a0, %lu  # double %f", U.U64, Nd->FVal);
+      printLn("  fmv.d.x fa0, a0");
+      return;
+    default:
+      printLn("  # 将%ld加载到a0中", Nd->Val);
+      printLn("  li a0, %ld", Nd->Val);
+      return;
+    }
+  }
   // 对寄存器取反
   case ND_NEG:
     genExpr(Nd->LHS);

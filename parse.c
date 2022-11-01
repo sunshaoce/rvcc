@@ -2689,7 +2689,16 @@ static Node *primary(Token **Rest, Token *Tok) {
 
   // num
   if (Tok->Kind == TK_NUM) {
-    Node *Nd = newNum(Tok->Val, Tok);
+    Node *Nd;
+    if (isFloNum(Tok->Ty)) {
+      // 浮点数节点
+      Nd = newNode(ND_NUM, Tok);
+      Nd->FVal = Tok->FVal;
+    } else {
+      // 整型节点
+      Nd = newNum(Tok->Val, Tok);
+    }
+
     // 设置类型为终结符的类型
     Nd->Ty = Tok->Ty;
     *Rest = Tok->Next;
