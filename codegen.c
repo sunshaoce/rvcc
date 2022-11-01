@@ -15,8 +15,10 @@ static Obj *CurrentFn;
 static void genExpr(Node *Nd);
 static void genStmt(Node *Nd);
 
+__attribute__((format(printf, 1, 2)))
 // 输出字符串到目标文件并换行
-static void printLn(char *Fmt, ...) {
+static void
+printLn(char *Fmt, ...) {
   va_list VA;
 
   va_start(VA, Fmt);

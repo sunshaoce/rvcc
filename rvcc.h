@@ -26,6 +26,10 @@
 #define MAX(x, y) ((x) < (y) ? (y) : (x))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 //
 // 共用头文件，定义了多个文件间共同使用的函数和数据
 //
@@ -48,7 +52,7 @@ typedef struct {
 } StringArray;
 
 void strArrayPush(StringArray *Arr, char *S);
-char *format(char *Fmt, ...);
+char *format(char *Fmt, ...) __attribute__((format(printf, 1, 2)));
 
 //
 // 终结符分析，词法分析
@@ -100,9 +104,12 @@ struct Token {
 
 // 去除了static用以在多个文件间访问
 // 报错函数
-noreturn void error(char *Fmt, ...);
-noreturn void errorAt(char *Loc, char *Fmt, ...);
-noreturn void errorTok(Token *Tok, char *Fmt, ...);
+noreturn void error(char *Fmt, ...) __attribute__((format(printf, 1, 2)));
+noreturn void errorAt(char *Loc, char *Fmt, ...)
+    __attribute__((format(printf, 2, 3)));
+noreturn void errorTok(Token *Tok, char *Fmt, ...)
+    __attribute__((format(printf, 2, 3)));
+void warnTok(Token *Tok, char *Fmt, ...) __attribute__((format(printf, 2, 3)));
 // 警告函数
 void warnTok(Token *Tok, char *Fmt, ...);
 // 判断Token与Str的关系
