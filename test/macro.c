@@ -21,6 +21,10 @@ int main() {
 #if 0
 #include "/no/such/file"
   assert(0, 1, "1");
+
+  // [164] 在值为假的#if语句中，跳过嵌套的 #if 语句
+  #if nested
+  #endif
 #endif
 
   int m = 0;
