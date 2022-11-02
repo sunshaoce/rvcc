@@ -63,11 +63,18 @@ static Token *append(Token *Tok1, Token *Tok2) {
 }
 
 // #if为空时，一直跳过到#endif
+// 其中嵌套的#if语句也一起跳过
 static Token *skipCondIncl(Token *Tok) {
   while (Tok->Kind != TK_EOF) {
+    // 跳过#if语句
+    if (isHash(Tok) && equal(Tok->Next, "if")) {
+      Tok = skipCondIncl(Tok->Next->Next);
+      Tok = Tok->Next;
+      continue;
+    }
     // #endif
     if (isHash(Tok) && equal(Tok->Next, "endif"))
-      return Tok;
+      break;
     Tok = Tok->Next;
   }
   return Tok;
