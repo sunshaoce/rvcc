@@ -202,7 +202,6 @@ static Node *expr(Token **Rest, Token *Tok);
 static int64_t eval(Node *Nd);
 static int64_t eval2(Node *Nd, char **Label);
 static int64_t evalRVal(Node *Nd, char **Label);
-static int64_t constExpr(Token **Rest, Token *Tok);
 static double evalDouble(Node *Nd);
 static Node *assign(Token **Rest, Token *Tok);
 static Node *conditional(Token **Rest, Token *Tok);
@@ -1907,7 +1906,7 @@ static int64_t evalRVal(Node *Nd, char **Label) {
 }
 
 // 解析常量表达式
-static int64_t constExpr(Token **Rest, Token *Tok) {
+int64_t constExpr(Token **Rest, Token *Tok) {
   // 进行常量表达式的构造
   Node *Nd = conditional(Rest, Tok);
   // 进行常量表达式的计算
