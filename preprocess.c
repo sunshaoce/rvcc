@@ -3,9 +3,10 @@
 // 定义的宏变量
 typedef struct Macro Macro;
 struct Macro {
-  Macro *Next; // 下一个
-  char *Name;  // 名称
-  Token *Body; // 对应的终结符
+  Macro *Next;  // 下一个
+  char *Name;   // 名称
+  Token *Body;  // 对应的终结符
+  bool Deleted; // 是否被删除了
 };
 
 // 宏变量栈
@@ -163,7 +164,8 @@ static Macro *findMacro(Token *Tok) {
   // 遍历宏变量栈，如果匹配则返回相应的宏变量
   for (Macro *M = Macros; M; M = M->Next)
     if (strlen(M->Name) == Tok->Len && !strncmp(M->Name, Tok->Loc, Tok->Len))
-      return M;
+      // 被删除的宏变量返回空
+      return M->Deleted ? NULL : M;
   return NULL;
 }
 
@@ -251,6 +253,24 @@ static Token *preprocess2(Token *Tok) {
       char *Name = strndup(Tok->Loc, Tok->Len);
       // 增加宏变量
       addMacro(Name, copyLine(&Tok, Tok->Next));
+      continue;
+    }
+
+    // 匹配#undef
+    if (equal(Tok, "undef")) {
+      Tok = Tok->Next;
+      // 如果匹配到的不是标识符就报错
+      if (Tok->Kind != TK_IDENT)
+        errorTok(Tok, "macro name must be an identifier");
+      // 复制名字
+      char *Name = strndup(Tok->Loc, Tok->Len);
+      // 跳到行首
+      Tok = skipLine(Tok->Next);
+
+      // 增加宏变量
+      Macro *M = addMacro(Name, NULL);
+      // 将宏变量设为删除状态
+      M->Deleted = true;
       continue;
     }
 
