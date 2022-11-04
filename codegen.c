@@ -1872,7 +1872,6 @@ static void emitData(Obj *Prog) {
     int Align = (Var->Ty->Kind == TY_ARRAY && Var->Ty->Size >= 16)
                     ? MAX(16, Var->Align)
                     : Var->Align;
-    printLn("  .align %d", simpleLog2(Align));
 
     // 为试探性的全局变量生成指示
     if (OptFCommon && Var->IsTentative) {
@@ -1894,6 +1893,10 @@ static void emitData(Obj *Prog) {
         printLn("\n  # 数据段标签");
         printLn("  .data");
       }
+
+      printLn("  .type %s, @object", Var->Name);
+      printLn("  .size %s, %d", Var->Name, Var->Ty->Size);
+      printLn("  .align %d", simpleLog2(Align));
       printLn("%s:", Var->Name);
       Relocation *Rel = Var->Rel;
       int Pos = 0;
@@ -1926,6 +1929,8 @@ static void emitData(Obj *Prog) {
       printLn("\n  # 未初始化的全局变量");
       printLn("  .bss");
     }
+
+    printLn("  .align %d", simpleLog2(Align));
     printLn("%s:", Var->Name);
     printLn("  # 全局变量零填充%d字节", Var->Ty->Size);
     printLn("  .zero %d", Var->Ty->Size);
@@ -2008,6 +2013,7 @@ void emitText(Obj *Prog) {
     printLn("  .text");
     printLn("# =====%s段开始===============", Fn->Name);
     printLn("# %s段标签", Fn->Name);
+    printLn("  .type %s, @function", Fn->Name);
     printLn("%s:", Fn->Name);
     CurrentFn = Fn;
 
