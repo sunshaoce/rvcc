@@ -5,7 +5,14 @@
 // 注意 ~ 应替换为具体的 /home/用户名 的路径
 static char *RVPath = "";
 
-typedef enum { FILE_NONE, FILE_C, FILE_ASM, FILE_OBJ } FileType;
+typedef enum {
+  FILE_NONE,
+  FILE_C,
+  FILE_ASM,
+  FILE_OBJ,
+  FILE_AR,
+  FILE_DSO,
+} FileType;
 
 // 引入路径区
 StringArray IncludePaths;
@@ -617,12 +624,15 @@ static void runLinker(StringArray *Inputs, char *Output) {
 }
 
 static FileType getFileType(char *Filename) {
-  if (endsWith(Filename, ".o"))
-    return FILE_OBJ;
-
   if (OptX != FILE_NONE)
     return OptX;
 
+  if (endsWith(Filename, ".a"))
+    return FILE_AR;
+  if (endsWith(Filename, ".so"))
+    return FILE_DSO;
+  if (endsWith(Filename, ".o"))
+    return FILE_OBJ;
   if (endsWith(Filename, ".c"))
     return FILE_C;
   if (endsWith(Filename, ".s"))
@@ -692,8 +702,8 @@ int main(int Argc, char **Argv) {
 
     FileType Ty = getFileType(Input);
 
-    // 处理.o文件
-    if (Ty == FILE_OBJ) {
+    // 处理.o或.a文件
+    if (Ty == FILE_OBJ || Ty == FILE_AR || Ty == FILE_DSO) {
       // 存入链接器选项中
       strArrayPush(&LdArgs, Input);
       continue;

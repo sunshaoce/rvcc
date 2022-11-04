@@ -235,4 +235,31 @@ check '-x none'
 echo foo | $rvcc -E - | grep -q foo
 check -E
 
+# [279] 识别.a和.so文件
+# .a file
+echo 'void foo() {}' | $rvcc -c -xc -o $tmp/foo.o -
+echo 'void bar() {}' | $rvcc -c -xc -o $tmp/bar.o -
+if [ "$RISCV" = "" ];then
+  ar rcs $tmp/foo.a $tmp/foo.o $tmp/bar.o
+else
+  $RISCV/bin/riscv64-unknown-linux-gnu-ar rcs $tmp/foo.a $tmp/foo.o $tmp/bar.o
+fi
+echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
+$rvcc -o $tmp/foo $tmp/main.c $tmp/foo.a
+check '.a'
+
+# .so file
+if [ "$RISCV" = "" ];then
+  echo 'void foo() {}' | cc -fPIC -c -xc -o $tmp/foo.o -
+  echo 'void bar() {}' | cc -fPIC -c -xc -o $tmp/bar.o -
+  cc -shared -o $tmp/foo.so $tmp/foo.o $tmp/bar.o
+else
+  echo 'void foo() {}' | $RISCV/bin/riscv64-unknown-linux-gnu-gcc -fPIC -c -xc -o $tmp/foo.o -
+  echo 'void bar() {}' | $RISCV/bin/riscv64-unknown-linux-gnu-gcc -fPIC -c -xc -o $tmp/bar.o -
+  $RISCV/bin/riscv64-unknown-linux-gnu-gcc -shared -o $tmp/foo.so $tmp/foo.o $tmp/bar.o
+fi
+echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
+$rvcc -o $tmp/foo $tmp/main.c $tmp/foo.so
+check '.so'
+
 echo OK
