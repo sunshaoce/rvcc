@@ -339,6 +339,12 @@ static Node *newVarNode(Obj *Var, Token *Tok) {
   return Nd;
 }
 
+static Node *new_vla_ptr(Obj *Var, Token *Tok) {
+  Node *Nd = newNode(ND_VLA_PTR, Tok);
+  Nd->Var = Var;
+  return Nd;
+}
+
 // 新转换
 Node *newCast(Node *Expr, Type *Ty) {
   addType(Expr);
@@ -1047,7 +1053,7 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy,
       // x = alloca(tmp)`.
       Obj *Var = newLVar(getIdent(Ty->Name), Ty);
       Token *Tok = Ty->Name;
-      Node *Expr = newBinary(ND_ASSIGN, newVarNode(Var, Tok),
+      Node *Expr = newBinary(ND_ASSIGN, new_vla_ptr(Var, Tok),
                              new_alloca(newVarNode(Ty->VLASize, Tok)), Tok);
 
       Cur = Cur->Next = newUnary(ND_EXPR_STMT, Expr, Tok);
@@ -2675,6 +2681,12 @@ static Node *newAdd(Node *LHS, Node *RHS, Token *Tok) {
     Node *Tmp = LHS;
     LHS = RHS;
     RHS = Tmp;
+  }
+
+  // VLA + num
+  if (LHS->Ty->Base->Kind == TY_VLA) {
+    RHS = newBinary(ND_MUL, RHS, newVarNode(LHS->Ty->Base->VLASize, Tok), Tok);
+    return newBinary(ND_ADD, LHS, RHS, Tok);
   }
 
   // ptr + num

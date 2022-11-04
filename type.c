@@ -267,6 +267,7 @@ void addType(Node *Nd) {
     return;
   // 将节点类型设为 变量的类型
   case ND_VAR:
+  case ND_VLA_PTR:
     Nd->Ty = Nd->Var->Ty;
     return;
   // 如果:左或右部为void则为void，否则为二者兼容的类型

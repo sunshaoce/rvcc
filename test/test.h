@@ -26,3 +26,6 @@ long strlen(char *s);
 
 // [271] 支持alloca函数
 void *memcpy(void *dest, void *src, long n);
+
+// [273] 为VLA支持指针算术运算
+void *memset(void *s, int c, long n);
