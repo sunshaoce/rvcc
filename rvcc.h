@@ -241,6 +241,7 @@ typedef enum {
   ND_EXPR_STMT, // 表达式语句
   ND_STMT_EXPR, // 语句表达式
   ND_VAR,       // 变量
+  ND_VLA_PTR,   // VLA指派器
   ND_NUM,       // 数字
   ND_CAST,      // 类型转换
   ND_MEMZERO,   // 栈中变量清零
