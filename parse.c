@@ -3314,8 +3314,14 @@ static Node *primary(Token **Rest, Token *Tok) {
       isTypename(Tok->Next->Next)) {
     Type *Ty = typename(&Tok, Tok->Next->Next);
     *Rest = skip(Tok, ")");
-    if (Ty->Kind == TY_VLA)
-      return newVarNode(Ty->VLASize, Tok);
+    if (Ty->Kind == TY_VLA) {
+      if (Ty->VLASize)
+        return newVarNode(Ty->VLASize, Tok);
+
+      Node *LHS = computeVLASize(Ty, Tok);
+      Node *RHS = newVarNode(Ty->VLASize, Tok);
+      return newBinary(ND_COMMA, LHS, RHS, Tok);
+    }
     return newULong(Ty->Size, Start);
   }
 
