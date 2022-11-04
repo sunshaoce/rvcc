@@ -24,6 +24,9 @@ struct CondIncl {
 // 全局的#if保存栈
 static CondIncl *CondIncls;
 
+// 处理所有的宏和指示
+static Token *preprocess2(Token *Tok);
+
 // 是否行首是#号
 static bool isHash(Token *Tok) { return Tok->AtBOL && equal(Tok, "#"); }
 
@@ -129,6 +132,8 @@ static long evalConstExpr(Token **Rest, Token *Tok) {
   Token *Start = Tok;
   // 解析#if后的常量表达式
   Token *Expr = copyLine(Rest, Tok->Next);
+  // 对于宏变量进行解析
+  Expr = preprocess2(Expr);
 
   // 空表达式报错
   if (Expr->Kind == TK_EOF)
