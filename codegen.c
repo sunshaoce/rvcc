@@ -1861,8 +1861,23 @@ static void genStmt(Node *Nd) {
 
     printLn("  # 遍历跳转到值等于a0的case标签");
     for (Node *N = Nd->CaseNext; N; N = N->CaseNext) {
-      printLn("  li t0, %ld", N->Val);
-      printLn("  beq a0, t0, %s", N->Label);
+      // 常规case
+      if (N->Begin == N->End) {
+        printLn("  li t2, %ld", N->Begin);
+        printLn("  beq a0, t2, %s", N->Label);
+        continue;
+      }
+
+      // [GNU] Case ranges
+      // printLn("  mov %s, %s", ax, di);
+      printLn("  mv t1, a0");
+      // printLn("  sub $%ld, %s", n->begin, di);
+      printLn("  li t2, %ld", N->Begin);
+      printLn("  sub t1, t1, t2");
+      // printLn("  cmp $%ld, %s", n->end - n->begin, di);
+      // printLn("  jbe %s", n->label);
+      printLn("  li t2, %ld", N->End - N->Begin);
+      printLn("  bleu t1, t2, %s", N->Label);
     }
 
     if (Nd->DefaultCase) {
