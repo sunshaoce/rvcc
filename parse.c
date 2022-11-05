@@ -1166,13 +1166,23 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
 //   struct { int a, b, c; } x = { .c=5 };
 //
 // The above initializer sets x.c to 5.
-static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
-  Token *Start = Tok;
-  int I = constExpr(&Tok, Tok->Next);
-  if (I >= Ty->ArrayLen)
-    errorTok(Start, "array designator index exceeds array bounds");
+static void arrayDesignator(Token **Rest, Token *Tok, Type *Ty, int *Begin,
+                             int *End) {
+  *Begin = constExpr(&Tok, Tok->Next);
+  if (*Begin >= Ty->ArrayLen)
+    errorTok(Tok, "array designator index exceeds array bounds");
+
+  if (equal(Tok, "...")) {
+    *End = constExpr(&Tok, Tok->Next);
+    if (*End >= Ty->ArrayLen)
+      errorTok(Tok, "array designator index exceeds array bounds");
+    if (*End < *Begin)
+      errorTok(Tok, "array designator range [%d, %d] is empty", *Begin, *End);
+  } else {
+    *End = *Begin;
+  }
+
   *Rest = skip(Tok, "]");
-  return I;
 }
 
 // struct-designator = "." ident
@@ -1208,9 +1218,14 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
   if (equal(Tok, "[")) {
     if (Init->Ty->Kind != TY_ARRAY)
       errorTok(Tok, "array index in non-array initializer");
-    int I = arrayDesignator(&Tok, Tok, Init->Ty);
-    designation(&Tok, Tok, Init->Children[I]);
-    arrayInitializer2(Rest, Tok, Init, I + 1);
+
+    int Begin, End;
+    arrayDesignator(&Tok, Tok, Init->Ty, &Begin, &End);
+
+    Token *Tok2;
+    for (int I = Begin; I <= End; I++)
+      designation(&Tok2, Tok, Init->Children[I]);
+    arrayInitializer2(Rest, Tok2, Init, Begin + 1);
     return;
   }
 
@@ -1293,8 +1308,14 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
     first = false;
 
     if (equal(Tok, "[")) {
-      I = arrayDesignator(&Tok, Tok, Init->Ty);
-      designation(&Tok, Tok, Init->Children[I]);
+      int Begin, End;
+      arrayDesignator(&Tok, Tok, Init->Ty, &Begin, &End);
+
+      Token *Tok2;
+      for (int J = Begin; J <= End; J++)
+        designation(&Tok2, Tok, Init->Children[J]);
+      Tok = Tok2;
+      I = End;
       continue;
     }
 
