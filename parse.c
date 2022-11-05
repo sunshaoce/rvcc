@@ -134,7 +134,7 @@ static Obj *BuiltinAlloca;
 // stmt = "return" expr? ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
-//        | "case" constExpr ":" stmt
+//        | "case" constExpr ("..." constExpr)? ":" stmt
 //        | "default" ":" stmt
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
@@ -1793,7 +1793,7 @@ static Node *asmStmt(Token **Rest, Token *Tok) {
 // stmt = "return" expr? ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "switch" "(" expr ")" stmt
-//        | "case" constExpr ":" stmt
+//        | "case" constExpr ("..." constExpr)? ":" stmt
 //        | "default" ":" stmt
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
 //        | "while" "(" expr ")" stmt
@@ -1881,13 +1881,25 @@ static Node *stmt(Token **Rest, Token *Tok) {
 
     Node *Nd = newNode(ND_CASE, Tok);
     // case后面的数值
-    int Val = constExpr(&Tok, Tok->Next);
+    int Begin = constExpr(&Tok, Tok->Next);
+    int End;
+
+    if (equal(Tok, "...")) {
+      // [GNU] Case ranges, e.g. "case 1 ... 5:"
+      End = constExpr(&Tok, Tok->Next);
+      if (End < Begin)
+        errorTok(Tok, "empty case range specified");
+    } else {
+      End = Begin;
+    }
+
     Tok = skip(Tok, ":");
     Nd->Label = newUniqueName();
     // case中的语句
     Nd->LHS = stmt(Rest, Tok);
     // case对应的数值
-    Nd->Val = Val;
+    Nd->Begin = Begin;
+    Nd->End = End;
     // 将旧的CurrentSwitch链表的头部存入Nd的CaseNext
     Nd->CaseNext = CurrentSwitch->CaseNext;
     // 将Nd存入CurrentSwitch的CaseNext
