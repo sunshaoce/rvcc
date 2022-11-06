@@ -33,6 +33,8 @@ static bool OptC;
 static bool OptCC1;
 // ###选项
 static bool OptHashHashHash;
+// -MF选项
+static char *OptMF;
 // 目标文件的路径
 static char *OptO;
 
@@ -56,7 +58,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x", "-MF"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -228,6 +230,11 @@ static void parseArgs(int Argc, char **Argv) {
 
     if (!strcmp(Argv[I], "-M")) {
       OptM = true;
+      continue;
+    }
+
+    if (!strcmp(Argv[I], "-MF")) {
+      OptMF = Argv[++I];
       continue;
     }
 
@@ -428,7 +435,15 @@ static void printTokens(Token *Tok) {
 // stdout in a format that "make" command can read. This feature is
 // used to automate file dependency management.
 static void print_dependencies(void) {
-  FILE *Out = openFile(OptO ? OptO : "-");
+  char *Path;
+  if (OptMF)
+    Path = OptMF;
+  else if (OptO)
+    Path = OptO;
+  else
+    Path = "-";
+
+  FILE *Out = openFile(Path);
   fprintf(Out, "%s:", replaceExtn(BaseFile, ".o"));
 
   File **Files = getInputFiles();
