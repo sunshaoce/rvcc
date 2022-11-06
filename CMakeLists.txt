@@ -14,6 +14,7 @@ add_executable( rvcc
   type.c
   codegen.c
   unicode.c
+  hashmap.c
 )
 
 # 编译参数

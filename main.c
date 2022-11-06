@@ -241,6 +241,11 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    if (!strcmp(Argv[I], "-hashmap-test")) {
+      hashmap_test();
+      exit(0);
+    }
+
     // 忽略多个选项
     if (!strncmp(Argv[I], "-O", 2) || !strncmp(Argv[I], "-W", 2) ||
         !strncmp(Argv[I], "-g", 2) || !strncmp(Argv[I], "-std=", 5) ||
