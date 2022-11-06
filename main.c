@@ -104,6 +104,34 @@ static FileType parseOptX(char *S) {
   error("<command line>: unknown argument for -x: %s", S);
 }
 
+static char *quote_makefile(char *s) {
+  char *buf = calloc(1, strlen(s) * 2 + 1);
+
+  for (int i = 0, j = 0; s[i]; i++) {
+    switch (s[i]) {
+    case '$':
+      buf[j++] = '$';
+      buf[j++] = '$';
+      break;
+    case '#':
+      buf[j++] = '\\';
+      buf[j++] = '#';
+      break;
+    case ' ':
+    case '\t':
+      for (int k = i - 1; k >= 0 && s[k] == '\\'; k--)
+        buf[j++] = '\\';
+      buf[j++] = '\\';
+      buf[j++] = s[i];
+      break;
+    default:
+      buf[j++] = s[i];
+      break;
+    }
+  }
+  return buf;
+}
+
 // 解析传入程序的参数
 static void parseArgs(int Argc, char **Argv) {
   // 确保需要一个参数的选项，存在一个参数
@@ -259,6 +287,14 @@ static void parseArgs(int Argc, char **Argv) {
 
     if (!strcmp(Argv[I], "-MD")) {
       OptMD = true;
+      continue;
+    }
+
+    if (!strcmp(Argv[I], "-MQ")) {
+      if (OptMT == NULL)
+        OptMT = quote_makefile(Argv[++I]);
+      else
+        OptMT = format("%s %s", OptMT, quote_makefile(Argv[++I]));
       continue;
     }
 
@@ -470,7 +506,10 @@ static void print_dependencies(void) {
     Path = "-";
 
   FILE *Out = openFile(Path);
-  fprintf(Out, "%s:", OptMT ? OptMT : replaceExtn(BaseFile, ".o"));
+  if (OptMT)
+    fprintf(Out, "%s:", OptMT);
+  else
+    fprintf(Out, "%s:", quote_makefile(replaceExtn(BaseFile, ".o")));
 
   File **Files = getInputFiles();
 
@@ -480,7 +519,7 @@ static void print_dependencies(void) {
 
   if (OptMP)
     for (int I = 1; Files[I]; I++)
-      fprintf(Out, "%s:\n\n", Files[I]->Name);
+      fprintf(Out, "%s:\n\n", quote_makefile(Files[I]->Name));
 }
 
 static Token *mustTokenizeFile(char *Path) {
