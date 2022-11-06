@@ -844,12 +844,65 @@ static char *readIncludeFilename(Token **Rest, Token *Tok, bool *IsDquote) {
   return NULL;
 }
 
+// Detect the following "include guard" pattern.
+//
+//   #ifndef FOO_H
+//   #define FOO_H
+//   ...
+//   #endif
+static char *detect_include_guard(Token *Tok) {
+  // Detect the first two lines.
+  if (!isHash(Tok) || !equal(Tok->Next, "ifndef"))
+    return NULL;
+  Tok = Tok->Next->Next;
+
+  if (Tok->Kind != TK_IDENT)
+    return NULL;
+
+  char *macro = strndup(Tok->Loc, Tok->Len);
+  Tok = Tok->Next;
+
+  if (!isHash(Tok) || !equal(Tok->Next, "define") ||
+      !equal(Tok->Next->Next, macro))
+    return NULL;
+
+  // Read until the end of the file.
+  while (Tok->Kind != TK_EOF) {
+    if (!isHash(Tok)) {
+      Tok = Tok->Next;
+      continue;
+    }
+
+    if (equal(Tok->Next, "endif") && Tok->Next->Next->Kind == TK_EOF)
+      return macro;
+
+    if (equal(Tok, "if") || equal(Tok, "ifdef") || equal(Tok, "ifndef"))
+      Tok = skipCondIncl(Tok->Next);
+    else
+      Tok = Tok->Next;
+  }
+  return NULL;
+}
+
 // 引入文件
 static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
+  // If we read the same file before, and if the file was guarded
+  // by the usual #ifndef ... #endif pattern, we may be able to
+  // skip the file without opening it.
+  static HashMap IncludeGuards;
+  char *GuardName = hashmap_get(&IncludeGuards, Path);
+  if (GuardName && hashmap_get(&Macros, GuardName))
+    return Tok;
+
   // 词法分析文件
   Token *Tok2 = tokenizeFile(Path);
   if (!Tok2)
     errorTok(FilenameTok, "%s: cannot open file: %s", Path, strerror(errno));
+
+  GuardName = detect_include_guard(Tok2);
+  if (GuardName)
+    hashmap_put(&IncludeGuards, Path, GuardName);
+
   return append(Tok2, Tok);
 }
 
