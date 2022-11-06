@@ -25,6 +25,8 @@ static StringArray OptInclude;
 static bool OptE;
 // -M选项
 static bool OptM;
+// -MP选项
+static bool OptMP;
 // -S选项
 static bool OptS;
 // -c选项
@@ -235,6 +237,11 @@ static void parseArgs(int Argc, char **Argv) {
 
     if (!strcmp(Argv[I], "-MF")) {
       OptMF = Argv[++I];
+      continue;
+    }
+
+    if (!strcmp(Argv[I], "-MP")) {
+      OptMP = true;
       continue;
     }
 
@@ -451,6 +458,10 @@ static void print_dependencies(void) {
   for (int I = 0; Files[I]; I++)
     fprintf(Out, " \\\n  %s", Files[I]->Name);
   fprintf(Out, "\n\n");
+
+  if (OptMP)
+    for (int I = 1; Files[I]; I++)
+      fprintf(Out, "%s:\n\n", Files[I]->Name);
 }
 
 static Token *mustTokenizeFile(char *Path) {
