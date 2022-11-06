@@ -139,7 +139,6 @@ Token *tokenizeFile(char *Path);
 //
 
 char *searchIncludePaths(char *Filename);
-bool fileExists(char *Path);
 void initMacros(void);
 void defineMacro(char *Name, char *Buf);
 void undefMacro(char *Name);
