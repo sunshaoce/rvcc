@@ -321,4 +321,14 @@ echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/main.c
 $rvcc -o $tmp/foo $tmp/main.c $tmp/foo.so
 check -fPIC
 
+# [300] [GNU] 支持#include_next
+# #include_next
+mkdir -p $tmp/next1 $tmp/next2 $tmp/next3
+echo '#include "file1.h"' > $tmp/file.c
+echo '#include_next "file1.h"' > $tmp/next1/file1.h
+echo '#include_next "file2.h"' > $tmp/next2/file1.h
+echo 'foo' > $tmp/next3/file2.h
+$rvcc -I$tmp/next1 -I$tmp/next2 -I$tmp/next3 -E $tmp/file.c | grep -q foo
+check '#include_next'
+
 echo OK
