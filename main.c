@@ -23,6 +23,8 @@ static FileType OptX;
 static StringArray OptInclude;
 // -E选项
 static bool OptE;
+// -M选项
+static bool OptM;
 // -S选项
 static bool OptS;
 // -c选项
@@ -224,6 +226,11 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    if (!strcmp(Argv[I], "-M")) {
+      OptM = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -417,6 +424,20 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
+// If -M options is given, the compiler write a list of input files to
+// stdout in a format that "make" command can read. This feature is
+// used to automate file dependency management.
+static void print_dependencies(void) {
+  FILE *Out = openFile(OptO ? OptO : "-");
+  fprintf(Out, "%s:", replaceExtn(BaseFile, ".o"));
+
+  File **Files = getInputFiles();
+
+  for (int I = 0; Files[I]; I++)
+    fprintf(Out, " \\\n  %s", Files[I]->Name);
+  fprintf(Out, "\n\n");
+}
+
 static Token *mustTokenizeFile(char *Path) {
   Token *Tok = tokenizeFile(Path);
   if (!Tok)
@@ -462,6 +483,12 @@ static void cc1(void) {
 
   // 预处理
   Tok = preprocess(Tok);
+
+  // If -M is given, print file dependencies.
+  if (OptM) {
+    print_dependencies();
+    return;
+  }
 
   // 如果指定了-E那么打印出预处理过的C代码
   if (OptE) {
@@ -728,7 +755,7 @@ int main(int Argc, char **Argv) {
     assert(Ty == FILE_C);
 
     // 只进行解析
-    if (OptE) {
+    if (OptE || OptM) {
       runCC1(Argc, Argv, Input, NULL);
       continue;
     }
