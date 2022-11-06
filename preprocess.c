@@ -785,11 +785,18 @@ char *searchIncludePaths(char *Filename) {
   if (Filename[0] == '/')
     return Filename;
 
+  static HashMap cache;
+  char *cached = hashmap_get(&cache, Filename);
+  if (cached)
+    return cached;
+
   // 从引入路径区查找文件
   for (int I = 0; I < IncludePaths.Len; I++) {
     char *Path = format("%s/%s", IncludePaths.Data[I], Filename);
-    if (fileExists(Path))
-      return Path;
+    if (!fileExists(Path))
+      continue;
+    hashmap_put(&cache, Filename, Path);
+    return Path;
   }
   return NULL;
 }
