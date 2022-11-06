@@ -365,6 +365,18 @@ if [ "$RISCV" = "" ];then
 else
   $RISCV/bin/riscv64-unknown-linux-gnu-gcc -Wl,-z,muldefs,--gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
 fi
-check -Wl,
+check -Wl
+
+# [305] 支持-Xlinker选项
+# -Xlinker
+echo 'int foo() {}' | $rvcc -c -o $tmp/foo.o -xc -
+echo 'int foo() {}' | $rvcc -c -o $tmp/bar.o -xc -
+echo 'int main() {}' | $rvcc -c -o $tmp/baz.o -xc -
+if [ "$RISCV" = "" ];then
+  cc -Xlinker -z -Xlinker muldefs -Xlinker --gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
+else
+  $RISCV/bin/riscv64-unknown-linux-gnu-gcc -Xlinker -z -Xlinker muldefs -Xlinker --gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
+fi
+check -Xlinker
 
 echo OK
