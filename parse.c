@@ -1752,21 +1752,23 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
 
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
-  static char *Kw[] = {
-      "void",       "_Bool",        "char",          "short",    "int",
-      "long",       "struct",       "union",         "typedef",  "enum",
-      "static",     "extern",       "_Alignas",      "signed",   "unsigned",
-      "const",      "volatile",     "auto",          "register", "restrict",
-      "__restrict", "__restrict__", "_Noreturn",     "float",    "double",
-      "typeof",     "inline",       "_Thread_local", "__thread",
-  };
+  static HashMap Map;
 
-  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
-    if (equal(Tok, Kw[I]))
-      return true;
+  if (Map.capacity == 0) {
+    static char *Kw[] = {
+        "void",       "_Bool",        "char",          "short",    "int",
+        "long",       "struct",       "union",         "typedef",  "enum",
+        "static",     "extern",       "_Alignas",      "signed",   "unsigned",
+        "const",      "volatile",     "auto",          "register", "restrict",
+        "__restrict", "__restrict__", "_Noreturn",     "float",    "double",
+        "typeof",     "inline",       "_Thread_local", "__thread",
+    };
+
+    for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); I++)
+      hashmap_put(&Map, Kw[I], (void *)1);
   }
-  // 查找是否为类型别名
-  return findTypedef(Tok);
+
+  return hashmap_get2(&Map, Tok->Loc, Tok->Len) || findTypedef(Tok);
 }
 
 // asmStmt = "asm" ("volatile" | "inline")* "(" stringLiteral ")"
