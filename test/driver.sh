@@ -280,4 +280,12 @@ $rvcc -MF $tmp/mf -M -I$tmp $tmp/out.c
 grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h' $tmp/mf
 check -MF
 
+# [291] 支持-MP选项
+# -MP
+$rvcc -MF $tmp/mp -MP -M -I$tmp $tmp/out.c
+grep -q '^.*/out2.h:' $tmp/mp
+check -MP
+grep -q '^.*/out3.h:' $tmp/mp
+check -MP
+
 echo OK
