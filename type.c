@@ -331,6 +331,9 @@ void addType(Node *Nd) {
     }
     errorTok(Nd->Tok, "statement expression returning void is not supported");
     return;
+  case ND_LABEL_VAL:
+    Nd->Ty = pointerTo(TyVoid);
+    return;
   default:
     break;
   }
