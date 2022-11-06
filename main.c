@@ -25,6 +25,8 @@ static StringArray OptInclude;
 static bool OptE;
 // -M选项
 static bool OptM;
+// -MD选项
+static bool OptMD;
 // -MP选项
 static bool OptMP;
 // -S选项
@@ -255,6 +257,11 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    if (!strcmp(Argv[I], "-MD")) {
+      OptMD = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -455,6 +462,8 @@ static void print_dependencies(void) {
   char *Path;
   if (OptMF)
     Path = OptMF;
+  else if (OptMD)
+    Path = replaceExtn(OptO ? OptO : BaseFile, ".d");
   else if (OptO)
     Path = OptO;
   else
@@ -521,9 +530,10 @@ static void cc1(void) {
   Tok = preprocess(Tok);
 
   // If -M is given, print file dependencies.
-  if (OptM) {
+  if (OptM || OptMD) {
     print_dependencies();
-    return;
+    if (OptM)
+      return;
   }
 
   // 如果指定了-E那么打印出预处理过的C代码

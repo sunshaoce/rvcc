@@ -295,4 +295,18 @@ check -MT
 $rvcc -MT foo -MT bar -M -I$tmp $tmp/out.c | grep -q '^foo bar:'
 check -MT
 
+# [293] 支持-MD选项
+# -MD
+echo '#include "out2.h"' > $tmp/md2.c
+echo '#include "out3.h"' > $tmp/md3.c
+(cd $tmp; $OLDPWD/$rvcc -c -MD -I. md2.c md3.c)
+grep -q -z '^md2.o:.* md2\.c .* ./out2\.h' $tmp/md2.d
+check -MD
+grep -q -z '^md3.o:.* md3\.c .* ./out3\.h' $tmp/md3.d
+check -MD
+
+$rvcc -c -MD -MF $tmp/md-mf.d -I. $tmp/md2.c
+grep -q -z '^md2.o:.*md2\.c .*/out2\.h' $tmp/md-mf.d
+check -MD
+
 echo OK
