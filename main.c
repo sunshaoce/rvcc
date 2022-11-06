@@ -27,6 +27,8 @@ static bool OptE;
 static bool OptM;
 // -MD选项
 static bool OptMD;
+// -MMD选项
+static bool OptMMD;
 // -MP选项
 static bool OptMP;
 // -S选项
@@ -45,6 +47,7 @@ static char *OptMT;
 static char *OptO;
 
 static StringArray LdExtraArgs;
+static StringArray StdIncludePaths;
 
 // 输入文件名
 char *BaseFile;
@@ -81,6 +84,10 @@ static void addDefaultIncludePaths(char *Argv0) {
   strArrayPush(&IncludePaths, "/usr/local/include");
   strArrayPush(&IncludePaths, "/usr/include/riscv64-linux-gnu");
   strArrayPush(&IncludePaths, "/usr/include");
+
+  // Keep a copy of the standard include paths for -MMD option.
+  for (int I = 0; I < IncludePaths.Len; I++)
+    strArrayPush(&StdIncludePaths, IncludePaths.Data[I]);
 }
 
 // 定义宏
@@ -298,6 +305,11 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    if (!strcmp(Argv[I], "-MMD")) {
+      OptMD = OptMMD = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -491,6 +503,16 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
+static bool inStdIncludePath(char *Path) {
+  for (int I = 0; I < StdIncludePaths.Len; I++) {
+    char *Dir = StdIncludePaths.Data[I];
+    int Len = strlen(Dir);
+    if (strncmp(Dir, Path, Len) == 0 && Path[Len] == '/')
+      return true;
+  }
+  return false;
+}
+
 // If -M options is given, the compiler write a list of input files to
 // stdout in a format that "make" command can read. This feature is
 // used to automate file dependency management.
@@ -513,13 +535,21 @@ static void print_dependencies(void) {
 
   File **Files = getInputFiles();
 
-  for (int I = 0; Files[I]; I++)
+  for (int I = 0; Files[I]; I++) {
+    if (OptMMD && inStdIncludePath(Files[I]->Name))
+      continue;
     fprintf(Out, " \\\n  %s", Files[I]->Name);
+  }
+
   fprintf(Out, "\n\n");
 
-  if (OptMP)
-    for (int I = 1; Files[I]; I++)
+  if (OptMP) {
+    for (int I = 1; Files[I]; I++) {
+      if (OptMMD && inStdIncludePath(Files[I]->Name))
+        continue;
       fprintf(Out, "%s:\n\n", quote_makefile(Files[I]->Name));
+    }
+  }
 }
 
 static Token *mustTokenizeFile(char *Path) {
