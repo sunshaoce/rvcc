@@ -210,32 +210,32 @@ static int readPunct(char *Ptr) {
 
 // 判断是否为关键字
 static bool isKeyword(Token *Tok) {
-  // 关键字列表
-  static char *Kw[] = {
-      "return",    "if",         "else",
-      "for",       "while",      "int",
-      "sizeof",    "char",       "struct",
-      "union",     "long",       "short",
-      "void",      "typedef",    "_Bool",
-      "enum",      "static",     "goto",
-      "break",     "continue",   "switch",
-      "case",      "default",    "extern",
-      "_Alignof",  "_Alignas",   "do",
-      "signed",    "unsigned",   "const",
-      "volatile",  "auto",       "register",
-      "restrict",  "__restrict", "__restrict__",
-      "_Noreturn", "float",      "double",
-      "typeof",    "asm",        "_Thread_local",
-      "__thread",
-  };
+  static HashMap map;
 
-  // 遍历关键字列表匹配
-  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
-    if (equal(Tok, Kw[I]))
-      return true;
+  if (map.capacity == 0) {
+    static char *kw[] = {
+        "return",    "if",         "else",
+        "for",       "while",      "int",
+        "sizeof",    "char",       "struct",
+        "union",     "short",      "long",
+        "void",      "typedef",    "_Bool",
+        "enum",      "static",     "goto",
+        "break",     "continue",   "switch",
+        "case",      "default",    "extern",
+        "_Alignof",  "_Alignas",   "do",
+        "signed",    "unsigned",   "const",
+        "volatile",  "auto",       "register",
+        "restrict",  "__restrict", "__restrict__",
+        "_Noreturn", "float",      "double",
+        "typeof",    "asm",        "_Thread_local",
+        "__thread",
+    };
+
+    for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
+      hashmap_put(&map, kw[i], (void *)1);
   }
 
-  return false;
+  return hashmap_get2(&map, Tok->Loc, Tok->Len);
 }
 
 // 读取转义字符
