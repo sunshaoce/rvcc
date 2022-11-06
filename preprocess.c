@@ -54,6 +54,7 @@ struct Hideset {
 
 // 全局的#if保存栈
 static CondIncl *CondIncls;
+static HashMap pragma_once;
 
 // 处理所有的宏和指示
 static Token *preprocess2(Token *Tok);
@@ -886,6 +887,10 @@ static char *detect_include_guard(Token *Tok) {
 
 // 引入文件
 static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
+  // Check for "#pragma once"
+  if (hashmap_get(&pragma_once, Path))
+    return Tok;
+
   // If we read the same file before, and if the file was guarded
   // by the usual #ifndef ... #endif pattern, we may be able to
   // skip the file without opening it.
@@ -1084,6 +1089,13 @@ static Token *preprocess2(Token *Tok) {
 
     if (Tok->Kind == TK_PP_NUM) {
       readLineMarker(&Tok, Tok);
+      continue;
+    }
+
+    // 匹配#pragma once
+    if (equal(Tok, "pragma") && equal(Tok->Next, "once")) {
+      hashmap_put(&pragma_once, Tok->File->Name, (void *)1);
+      Tok = skipLine(Tok->Next->Next);
       continue;
     }
 
