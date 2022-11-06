@@ -349,6 +349,18 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    if (!strcmp(Argv[I], "-L")) {
+      strArrayPush(&LdExtraArgs, "-L");
+      strArrayPush(&LdExtraArgs, Argv[++I]);
+      continue;
+    }
+
+    if (!strncmp(Argv[I], "-L", 2)) {
+      strArrayPush(&LdExtraArgs, "-L");
+      strArrayPush(&LdExtraArgs, Argv[I] + 2);
+      continue;
+    }
+
     if (!strcmp(Argv[I], "-hashmap-test")) {
       hashmap_test();
       exit(0);
