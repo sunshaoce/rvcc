@@ -340,4 +340,11 @@ check -static
 file $tmp/foo | grep -q 'statically linked'
 check -static
 
+# [302] 支持-shared选项
+# -shared
+echo 'extern int bar; int foo() { return bar; }' > $tmp/foo.c
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
+$rvcc -fPIC -shared -o $tmp/foo.so $tmp/foo.c $tmp/bar.c
+check -shared
+
 echo OK
