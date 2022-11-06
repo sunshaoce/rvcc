@@ -196,7 +196,7 @@ typedef struct Relocation Relocation;
 struct Relocation {
   Relocation *Next; // 下一个
   int Offset;       // 偏移量
-  char *Label;      // 标签名
+  char **Label;      // 标签名
   long Addend;      // 加数
 };
 
