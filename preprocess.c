@@ -55,6 +55,7 @@ struct Hideset {
 // 全局的#if保存栈
 static CondIncl *CondIncls;
 static HashMap pragma_once;
+static int include_next_idx;
 
 // 处理所有的宏和指示
 static Token *preprocess2(Token *Tok);
@@ -797,7 +798,17 @@ char *searchIncludePaths(char *Filename) {
     if (!fileExists(Path))
       continue;
     hashmap_put(&cache, Filename, Path);
+    include_next_idx = I + 1;
     return Path;
+  }
+  return NULL;
+}
+
+static char *search_include_next(char *filename) {
+  for (; include_next_idx < IncludePaths.Len; include_next_idx++) {
+    char *path = format("%s/%s", IncludePaths.Data[include_next_idx], filename);
+    if (fileExists(path))
+      return path;
   }
   return NULL;
 }
@@ -978,6 +989,14 @@ static Token *preprocess2(Token *Tok) {
       // 直接引入文件，搜索引入路径
       char *Path = searchIncludePaths(Filename);
       Tok = includeFile(Tok, Path ? Path : Filename, Start->Next->Next);
+      continue;
+    }
+
+    if (equal(Tok, "include_next")) {
+      bool ignore;
+      char *filename = readIncludeFilename(&Tok, Tok->Next, &ignore);
+      char *path = search_include_next(filename);
+      Tok = includeFile(Tok, path ? path : filename, Start->Next->Next);
       continue;
     }
 
