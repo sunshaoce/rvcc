@@ -37,6 +37,8 @@ static bool OptCC1;
 static bool OptHashHashHash;
 // -MF选项
 static char *OptMF;
+// -MT选项
+static char *OptMT;
 // 目标文件的路径
 static char *OptO;
 
@@ -60,7 +62,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x", "-MF"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x", "-MF", "-MT"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -242,6 +244,14 @@ static void parseArgs(int Argc, char **Argv) {
 
     if (!strcmp(Argv[I], "-MP")) {
       OptMP = true;
+      continue;
+    }
+
+    if (!strcmp(Argv[I], "-MT")) {
+      if (OptMT == NULL)
+        OptMT = Argv[++I];
+      else
+        OptMT = format("%s %s", OptMT, Argv[++I]);
       continue;
     }
 
@@ -451,7 +461,7 @@ static void print_dependencies(void) {
     Path = "-";
 
   FILE *Out = openFile(Path);
-  fprintf(Out, "%s:", replaceExtn(BaseFile, ".o"));
+  fprintf(Out, "%s:", OptMT ? OptMT : replaceExtn(BaseFile, ".o"));
 
   File **Files = getInputFiles();
 
