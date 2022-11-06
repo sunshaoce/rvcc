@@ -42,6 +42,8 @@ static bool OptCC1;
 static bool OptHashHashHash;
 //-static选项
 static bool opt_static;
+// -shared选项
+static bool opt_shared;
 // -MF选项
 static char *OptMF;
 // -MT选项
@@ -338,6 +340,12 @@ static void parseArgs(int Argc, char **Argv) {
     if (!strcmp(Argv[I], "-static")) {
       opt_static = true;
       strArrayPush(&LdExtraArgs, "-static");
+      continue;
+    }
+
+    if (!strcmp(Argv[I], "-shared")) {
+      opt_shared = true;
+      strArrayPush(&LdExtraArgs, "-shared");
       continue;
     }
 
@@ -739,9 +747,15 @@ static void runLinker(StringArray *Inputs, char *Output) {
   char *LibPath = findLibPath();
   char *GccLibPath = findGCCLibPath();
 
-  strArrayPush(&Arr, format("%s/crt1.o", LibPath));
-  strArrayPush(&Arr, format("%s/crti.o", LibPath));
-  strArrayPush(&Arr, format("%s/crtbegin.o", GccLibPath));
+  if (opt_shared) {
+    strArrayPush(&Arr, format("%s/crti.o", LibPath));
+    strArrayPush(&Arr, format("%s/crtbeginS.o", GccLibPath));
+  } else {
+    strArrayPush(&Arr, format("%s/crt1.o", LibPath));
+    strArrayPush(&Arr, format("%s/crti.o", LibPath));
+    strArrayPush(&Arr, format("%s/crtbegin.o", GccLibPath));
+  }
+
   strArrayPush(&Arr, format("-L%s", GccLibPath));
 
   if (strlen(RVPath)) {
@@ -785,7 +799,11 @@ static void runLinker(StringArray *Inputs, char *Output) {
     strArrayPush(&Arr, "-lgcc_s");
     strArrayPush(&Arr, "--no-as-needed");
   }
-  strArrayPush(&Arr, format("%s/crtend.o", GccLibPath));
+
+  if (opt_shared)
+    strArrayPush(&Arr, format("%s/crtendS.o", GccLibPath));
+  else
+    strArrayPush(&Arr, format("%s/crtend.o", GccLibPath));
   strArrayPush(&Arr, format("%s/crtn.o", LibPath));
   strArrayPush(&Arr, NULL);
 
