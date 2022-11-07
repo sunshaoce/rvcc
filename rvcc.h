@@ -84,6 +84,7 @@ struct Token {
   File *File;       // 源文件位置
   int LineNo;       // 行号
   bool AtBOL;       // 终结符在行首（begin of line）时为true
+  bool HasSpace;    // 终结符前是否有空格
   Hideset *Hideset; // 用于宏展开时的隐藏集
 };
 
