@@ -251,8 +251,11 @@ static void printTokens(Token *Tok) {
     // 位于行首打印出换行符
     if (Line > 1 && Tok->AtBOL)
       fprintf(Out, "\n");
-    // 打印出空格和终结符
-    fprintf(Out, " %.*s", Tok->Len, Tok->Loc);
+    // 打印出需要空格的位置
+    if (Tok->HasSpace && !Tok->AtBOL)
+      fprintf(Out, " ");
+    // 打印出终结符
+    fprintf(Out, "%.*s", Tok->Len, Tok->Loc);
     Line++;
   }
   // 文件以换行符结尾

@@ -3,10 +3,11 @@
 // 定义的宏变量
 typedef struct Macro Macro;
 struct Macro {
-  Macro *Next;  // 下一个
-  char *Name;   // 名称
-  Token *Body;  // 对应的终结符
-  bool Deleted; // 是否被删除了
+  Macro *Next;    // 下一个
+  char *Name;     // 名称
+  bool IsObjlike; // 宏变量为真，或者宏函数为假
+  Token *Body;    // 对应的终结符
+  bool Deleted;   // 是否被删除了
 };
 
 // 宏变量栈
@@ -227,13 +228,34 @@ static Macro *findMacro(Token *Tok) {
 }
 
 // 新增宏变量，压入宏变量栈中
-static Macro *addMacro(char *Name, Token *Body) {
+static Macro *addMacro(char *Name, bool IsObjlike, Token *Body) {
   Macro *M = calloc(1, sizeof(Macro));
   M->Next = Macros;
   M->Name = Name;
+  M->IsObjlike = IsObjlike;
   M->Body = Body;
   Macros = M;
   return M;
+}
+
+// 读取宏定义
+static void readMacroDefinition(Token **Rest, Token *Tok) {
+  // 如果匹配到的不是标识符就报错
+  if (Tok->Kind != TK_IDENT)
+    errorTok(Tok, "macro name must be an identifier");
+  // 复制名字
+  char *Name = strndup(Tok->Loc, Tok->Len);
+  Tok = Tok->Next;
+
+  // 判断是宏变量还是宏函数，括号前没有空格则为宏函数
+  if (!Tok->HasSpace && equal(Tok, "(")) {
+    // 增加宏函数
+    Tok = skip(Tok->Next, ")");
+    addMacro(Name, false, copyLine(Rest, Tok));
+  } else {
+    // 增加宏变量
+    addMacro(Name, true, copyLine(Rest, Tok));
+  }
 }
 
 // 如果是宏变量并展开成功，返回真
@@ -247,11 +269,23 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   if (!M)
     return false;
 
-  // 展开过一次的宏变量，就加入到隐藏集当中
-  Hideset *Hs = hidesetUnion(Tok->Hideset, newHideset(M->Name));
-  // 处理此宏变量之后，传递隐藏集给之后的终结符
-  Token *Body = addHideset(M->Body, Hs);
-  *Rest = append(Body, Tok->Next);
+  // 为宏变量时
+  if (M->IsObjlike) {
+    // 展开过一次的宏变量，就加入到隐藏集当中
+    Hideset *Hs = hidesetUnion(Tok->Hideset, newHideset(M->Name));
+    // 处理此宏变量之后，传递隐藏集给之后的终结符
+    Token *Body = addHideset(M->Body, Hs);
+    *Rest = append(Body, Tok->Next);
+    return true;
+  }
+
+  // 如果宏函数后面没有参数列表，就处理为正常的标识符
+  if (!equal(Tok->Next, "("))
+    return false;
+
+  // 处理宏函数的)"，并连接到Tok之后
+  Tok = skip(Tok->Next->Next, ")");
+  *Rest = append(M->Body, Tok);
   return true;
 }
 
@@ -311,14 +345,8 @@ static Token *preprocess2(Token *Tok) {
 
     // 匹配#define
     if (equal(Tok, "define")) {
-      Tok = Tok->Next;
-      // 如果匹配到的不是标识符就报错
-      if (Tok->Kind != TK_IDENT)
-        errorTok(Tok, "macro name must be an identifier");
-      // 复制名字
-      char *Name = strndup(Tok->Loc, Tok->Len);
-      // 增加宏变量
-      addMacro(Name, copyLine(&Tok, Tok->Next));
+      // 读取宏定义
+      readMacroDefinition(&Tok, Tok->Next);
       continue;
     }
 
@@ -334,7 +362,7 @@ static Token *preprocess2(Token *Tok) {
       Tok = skipLine(Tok->Next);
 
       // 增加宏变量
-      Macro *M = addMacro(Name, NULL);
+      Macro *M = addMacro(Name, true, NULL);
       // 将宏变量设为删除状态
       M->Deleted = true;
       continue;
