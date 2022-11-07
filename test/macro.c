@@ -168,6 +168,45 @@ int main() {
 #define M5 M4 + 2
   assert(13, M4, "M4");
 
+  printf("[171] 支持 #ifdef 和 #ifndef\n");
+#ifdef M6
+  m = 5;
+#else
+  m = 3;
+#endif
+  assert(3, m, "m");
+
+#define M6
+#ifdef M6
+  m = 5;
+#else
+  m = 3;
+#endif
+  assert(5, m, "m");
+
+#ifndef M7
+  m = 3;
+#else
+  m = 5;
+#endif
+  assert(3, m, "m");
+
+#define M7
+#ifndef M7
+  m = 3;
+#else
+  m = 5;
+#endif
+  assert(5, m, "m");
+
+#if 0
+#ifdef NO_SUCH_MACRO
+#endif
+#ifndef NO_SUCH_MACRO
+#endif
+#else
+#endif
+
   printf("OK\n");
   return 0;
 }
