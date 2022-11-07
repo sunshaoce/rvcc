@@ -131,7 +131,8 @@ static Token *append(Token *Tok1, Token *Tok2) {
 // 跳过#if和#endif
 static Token *skipCondIncl2(Token *Tok) {
   while (Tok->Kind != TK_EOF) {
-    if (isHash(Tok) && equal(Tok->Next, "if")) {
+    if (isHash(Tok) && (equal(Tok->Next, "if") || equal(Tok->Next, "ifdef") ||
+                        equal(Tok->Next, "ifndef"))) {
       Tok = skipCondIncl2(Tok->Next->Next);
       continue;
     }
@@ -147,7 +148,8 @@ static Token *skipCondIncl2(Token *Tok) {
 static Token *skipCondIncl(Token *Tok) {
   while (Tok->Kind != TK_EOF) {
     // 跳过#if语句
-    if (isHash(Tok) && equal(Tok->Next, "if")) {
+    if (isHash(Tok) && (equal(Tok->Next, "if") || equal(Tok->Next, "ifdef") ||
+                        equal(Tok->Next, "ifndef"))) {
       Tok = skipCondIncl2(Tok->Next->Next);
       continue;
     }
@@ -346,6 +348,34 @@ static Token *preprocess2(Token *Tok) {
       pushCondIncl(Start, Val);
       // 处理#if后值为假的情况，全部跳过
       if (!Val)
+        Tok = skipCondIncl(Tok);
+      continue;
+    }
+
+    // 匹配#ifdef
+    if (equal(Tok, "ifdef")) {
+      // 查找宏变量
+      bool Defined = findMacro(Tok->Next);
+      // 压入#if栈
+      pushCondIncl(Tok, Defined);
+      // 跳到行首
+      Tok = skipLine(Tok->Next->Next);
+      // 如果没被定义，那么应该跳过这个部分
+      if (!Defined)
+        Tok = skipCondIncl(Tok);
+      continue;
+    }
+
+    // 匹配#ifndef
+    if (equal(Tok, "ifndef")) {
+      // 查找宏变量
+      bool Defined = findMacro(Tok->Next);
+      // 压入#if栈，此时不存在时则设为真
+      pushCondIncl(Tok, !Defined);
+      // 跳到行首
+      Tok = skipLine(Tok->Next->Next);
+      // 如果被定义了，那么应该跳过这个部分
+      if (Defined)
         Tok = skipCondIncl(Tok);
       continue;
     }
