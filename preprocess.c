@@ -1,13 +1,29 @@
 #include "rvcc.h"
 
+// 宏函数形参
+typedef struct MacroParam MacroParam;
+struct MacroParam {
+  MacroParam *Next; // 下一个
+  char *Name;       // 名称
+};
+
+// 宏函数实参
+typedef struct MacroArg MacroArg;
+struct MacroArg {
+  MacroArg *Next; // 下一个
+  char *Name;     // 名称
+  Token *Tok;     // 对应的终结符链表
+};
+
 // 定义的宏变量
 typedef struct Macro Macro;
 struct Macro {
-  Macro *Next;    // 下一个
-  char *Name;     // 名称
-  bool IsObjlike; // 宏变量为真，或者宏函数为假
-  Token *Body;    // 对应的终结符
-  bool Deleted;   // 是否被删除了
+  Macro *Next;        // 下一个
+  char *Name;         // 名称
+  bool IsObjlike;     // 宏变量为真，或者宏函数为假
+  MacroParam *Params; // 宏函数参数
+  Token *Body;        // 对应的终结符
+  bool Deleted;       // 是否被删除了
 };
 
 // 宏变量栈
@@ -238,6 +254,30 @@ static Macro *addMacro(char *Name, bool IsObjlike, Token *Body) {
   return M;
 }
 
+// 读取宏形参
+static MacroParam *readMacroParams(Token **Rest, Token *Tok) {
+  MacroParam Head = {};
+  MacroParam *Cur = &Head;
+
+  while (!equal(Tok, ")")) {
+    if (Cur != &Head)
+      Tok = skip(Tok, ",");
+
+    // 如果不是标识符报错
+    if (Tok->Kind != TK_IDENT)
+      errorTok(Tok, "expected an identifier");
+    // 开辟空间
+    MacroParam *M = calloc(1, sizeof(MacroParam));
+    // 设置名称
+    M->Name = strndup(Tok->Loc, Tok->Len);
+    // 加入链表
+    Cur = Cur->Next = M;
+    Tok = Tok->Next;
+  }
+  *Rest = Tok->Next;
+  return Head.Next;
+}
+
 // 读取宏定义
 static void readMacroDefinition(Token **Rest, Token *Tok) {
   // 如果匹配到的不是标识符就报错
@@ -249,13 +289,104 @@ static void readMacroDefinition(Token **Rest, Token *Tok) {
 
   // 判断是宏变量还是宏函数，括号前没有空格则为宏函数
   if (!Tok->HasSpace && equal(Tok, "(")) {
+    // 构造形参
+    MacroParam *Params = readMacroParams(&Tok, Tok->Next);
     // 增加宏函数
-    Tok = skip(Tok->Next, ")");
-    addMacro(Name, false, copyLine(Rest, Tok));
+    Macro *M = addMacro(Name, false, copyLine(Rest, Tok));
+    M->Params = Params;
   } else {
     // 增加宏变量
     addMacro(Name, true, copyLine(Rest, Tok));
   }
+}
+
+// 读取单个宏实参
+static MacroArg *readMacroArgOne(Token **Rest, Token *Tok) {
+  Token Head = {};
+  Token *Cur = &Head;
+
+  // 读取实参对应的终结符
+  while (!equal(Tok, ",") && !equal(Tok, ")")) {
+    if (Tok->Kind == TK_EOF)
+      errorTok(Tok, "premature end of input");
+    // 将标识符加入到链表中
+    Cur = Cur->Next = copyToken(Tok);
+    Tok = Tok->Next;
+  }
+
+  // 加入EOF终结
+  Cur->Next = newEOF(Tok);
+
+  MacroArg *Arg = calloc(1, sizeof(MacroArg));
+  // 赋值实参的终结符链表
+  Arg->Tok = Head.Next;
+  *Rest = Tok;
+  return Arg;
+}
+
+// 读取宏实参
+static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params) {
+  Token *Start = Tok;
+  Tok = Tok->Next->Next;
+
+  MacroArg Head = {};
+  MacroArg *Cur = &Head;
+
+  // 遍历形参，然后对应着加入到实参链表中
+  MacroParam *PP = Params;
+  for (; PP; PP = PP->Next) {
+    if (Cur != &Head)
+      Tok = skip(Tok, ",");
+    // 读取单个实参
+    Cur = Cur->Next = readMacroArgOne(&Tok, Tok);
+    // 设置为对应的形参名称
+    Cur->Name = PP->Name;
+  }
+
+  // 如果形参没有遍历完，就报错
+  if (PP)
+    errorTok(Start, "too many arguments");
+  *Rest = skip(Tok, ")");
+  return Head.Next;
+}
+
+// 遍历查找实参
+static MacroArg *findArg(MacroArg *Args, Token *Tok) {
+  for (MacroArg *AP = Args; AP; AP = AP->Next)
+    if (Tok->Len == strlen(AP->Name) && !strncmp(Tok->Loc, AP->Name, Tok->Len))
+      return AP;
+  return NULL;
+}
+
+// 将宏函数形参替换为指定的实参
+static Token *subst(Token *Tok, MacroArg *Args) {
+  Token Head = {};
+  Token *Cur = &Head;
+
+  // 遍历将形参替换为实参的终结符链表
+  while (Tok->Kind != TK_EOF) {
+    // 查找实参
+    MacroArg *Arg = findArg(Args, Tok);
+
+    // 处理宏终结符，宏实参在被替换之前已经被展开了
+    if (Arg) {
+      // 解析实参对应的终结符链表
+      Token *T = preprocess2(Arg->Tok);
+      for (; T->Kind != TK_EOF; T = T->Next)
+        Cur = Cur->Next = copyToken(T);
+      Tok = Tok->Next;
+      continue;
+    }
+
+    // 处理非宏的终结符
+    Cur = Cur->Next = copyToken(Tok);
+    Tok = Tok->Next;
+    continue;
+  }
+
+  Cur->Next = Tok;
+  // 将宏链表返回
+  return Head.Next;
 }
 
 // 如果是宏变量并展开成功，返回真
@@ -283,9 +414,10 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   if (!equal(Tok->Next, "("))
     return false;
 
-  // 处理宏函数的)"，并连接到Tok之后
-  Tok = skip(Tok->Next->Next, ")");
-  *Rest = append(M->Body, Tok);
+  // 处理宏函数，并连接到Tok之后
+  // 读取宏函数实参
+  MacroArg *Args = readMacroArgs(&Tok, Tok, M->Params);
+  *Rest = append(subst(M->Body, Args), Tok);
   return true;
 }
 
