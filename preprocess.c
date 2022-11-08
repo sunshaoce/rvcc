@@ -304,11 +304,18 @@ static void readMacroDefinition(Token **Rest, Token *Tok) {
 static MacroArg *readMacroArgOne(Token **Rest, Token *Tok) {
   Token Head = {};
   Token *Cur = &Head;
+  int Level = 0;
 
   // 读取实参对应的终结符
-  while (!equal(Tok, ",") && !equal(Tok, ")")) {
+  while (Level > 0 || !equal(Tok, ",") && !equal(Tok, ")")) {
     if (Tok->Kind == TK_EOF)
       errorTok(Tok, "premature end of input");
+
+    if (equal(Tok, "("))
+      Level++;
+    else if (equal(Tok, ")"))
+      Level--;
+
     // 将标识符加入到链表中
     Cur = Cur->Next = copyToken(Tok);
     Tok = Tok->Next;
