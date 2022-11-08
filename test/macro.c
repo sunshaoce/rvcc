@@ -219,6 +219,16 @@ int main() {
 #define M7 ()
   assert(3, ret3 M7, "ret3 M7");
 
+  printf("[173] 支持 #define 多参宏函数\n");
+#define M8(x, y) x + y
+  assert(7, M8(3, 4), "M8(3, 4)");
+
+#define M8(x, y) x *y
+  assert(24, M8(3 + 4, 4 + 5), "M8(3+4, 4+5)");
+
+#define M8(x, y) (x) * (y)
+  assert(63, M8(3 + 4, 4 + 5), "M8(3+4, 4+5)");
+
   printf("OK\n");
   return 0;
 }
