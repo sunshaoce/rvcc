@@ -229,6 +229,10 @@ int main() {
 #define M8(x, y) (x) * (y)
   assert(63, M8(3 + 4, 4 + 5), "M8(3+4, 4+5)");
 
+  printf("[174] 支持空的宏参数\n");
+#define M8(x, y) x y
+  assert(9, M8(, 4 + 5), "M8(, 4+5)");
+
   printf("OK\n");
   return 0;
 }
