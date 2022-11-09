@@ -474,7 +474,7 @@ static void addLineNumbers(Token *Tok) {
 }
 
 // 终结符解析，文件名，文件内容
-static Token *tokenize(File *FP) {
+Token *tokenize(File *FP) {
   // 设定当前文件
   CurrentFile = FP;
 
@@ -634,7 +634,7 @@ static char *readFile(char *Path) {
 File **getInputFiles(void) { return InputFiles; }
 
 // 新建一个File
-static File *newFile(char *Name, int FileNo, char *Contents) {
+File *newFile(char *Name, int FileNo, char *Contents) {
   File *FP = calloc(1, sizeof(File));
   FP->Name = Name;
   FP->FileNo = FileNo;

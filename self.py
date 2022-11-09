@@ -90,6 +90,7 @@ int wait(int *wstatus);
 int atexit(void (*)(void));
 FILE *open_memstream(char **ptr, size_t *sizeloc);
 char *dirname(char *path);
+char *strncpy(char *dest, char *src, long n);
 """)
 
 # 对文件内容进行替换
