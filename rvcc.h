@@ -103,6 +103,10 @@ bool consume(Token **Rest, Token *Tok, char *Str);
 void convertKeywords(Token *Tok);
 // 获取输入文件
 File **getInputFiles(void);
+// 新建一个File
+File *newFile(char *Name, int FileNo, char *Contents);
+// 终结符解析，文件名，文件内容
+Token *tokenize(File *FP);
 // 词法分析
 Token *tokenizeFile(char *Path);
 
