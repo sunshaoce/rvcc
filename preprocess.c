@@ -452,6 +452,18 @@ static Token *stringize(Token *Hash, Token *Arg) {
   return newStrToken(S, Hash);
 }
 
+// 拼接两个终结符构建一个新的终结符
+static Token *paste(Token *LHS, Token *RHS) {
+  // 合并两个终结符
+  char *Buf = format("%.*s%.*s", LHS->Len, LHS->Loc, RHS->Len, RHS->Loc);
+
+  // 词法解析生成的字符串，转换为相应的终结符
+  Token *Tok = tokenize(newFile(LHS->File->Name, LHS->File->FileNo, Buf));
+  if (Tok->Next->Kind != TK_EOF)
+    errorTok(LHS, "pasting forms '%s', an invalid token", Buf);
+  return Tok;
+}
+
 // 将宏函数形参替换为指定的实参
 static Token *subst(Token *Tok, MacroArg *Args) {
   Token Head = {};
@@ -471,8 +483,69 @@ static Token *subst(Token *Tok, MacroArg *Args) {
       continue;
     }
 
+    // ##及右边，用于连接终结符
+    if (equal(Tok, "##")) {
+      if (Cur == &Head)
+        errorTok(Tok, "'##' cannot appear at start of macro expansion");
+
+      if (Tok->Next->Kind == TK_EOF)
+        errorTok(Tok, "'##' cannot appear at end of macro expansion");
+
+      // 查找下一个终结符
+      // 如果是（##右边）宏实参
+      MacroArg *Arg = findArg(Args, Tok->Next);
+      if (Arg) {
+        if (Arg->Tok->Kind != TK_EOF) {
+          // 拼接当前终结符和（##右边）实参
+          *Cur = *paste(Cur, Arg->Tok);
+          // 将（##右边）实参未参与拼接的剩余部分加入到链表当中
+          for (Token *T = Arg->Tok->Next; T->Kind != TK_EOF; T = T->Next)
+            Cur = Cur->Next = copyToken(T);
+        }
+        // 指向（##右边）实参的下一个
+        Tok = Tok->Next->Next;
+        continue;
+      }
+
+      // 如果不是（##右边）宏实参
+      // 直接拼接
+      *Cur = *paste(Cur, Tok->Next);
+      Tok = Tok->Next->Next;
+      continue;
+    }
+
     // 查找实参
     MacroArg *Arg = findArg(Args, Tok);
+
+    // 左边及##，用于连接终结符
+    if (Arg && equal(Tok->Next, "##")) {
+      // 读取##右边的终结符
+      Token *RHS = Tok->Next->Next;
+
+      // 实参（##左边）为空的情况
+      if (Arg->Tok->Kind == TK_EOF) {
+        // 查找（##右边）实参
+        MacroArg *Arg2 = findArg(Args, RHS);
+        if (Arg2) {
+          // 如果是实参，那么逐个遍历实参对应的终结符
+          for (Token *T = Arg2->Tok; T->Kind != TK_EOF; T = T->Next)
+            Cur = Cur->Next = copyToken(T);
+        } else {
+          // 如果不是实参，那么直接复制进链表
+          Cur = Cur->Next = copyToken(RHS);
+        }
+        // 指向（##右边）实参的下一个
+        Tok = RHS->Next;
+        continue;
+      }
+
+      // 实参（##左边）不为空的情况
+      for (Token *T = Arg->Tok; T->Kind != TK_EOF; T = T->Next)
+        // 复制此终结符
+        Cur = Cur->Next = copyToken(T);
+      Tok = Tok->Next;
+      continue;
+    }
 
     // 处理宏终结符，宏实参在被替换之前已经被展开了
     if (Arg) {
