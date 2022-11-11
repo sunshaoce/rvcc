@@ -317,6 +317,23 @@ int main() {
 #endif
   ASSERT(5, m);
 
+  printf("[182] 宏展开时保留新行和空格\n");
+#define STR(x) #x
+#define M12(x) STR(x)
+#define M13(x) M12(foo.x)
+  ASSERT(0, strcmp(M13(bar), "foo.bar"));
+
+#define M13(x) M12(foo. x)
+  ASSERT(0, strcmp(M13(bar), "foo. bar"));
+
+#define M12 foo
+#define M13(x) STR(x)
+#define M14(x) M13(x.M12)
+  ASSERT(0, strcmp(M14(bar), "bar.foo"));
+
+#define M14(x) M13(x. M12)
+  ASSERT(0, strcmp(M14(bar), "bar. foo"));
+
   printf("OK\n");
   return 0;
 }
