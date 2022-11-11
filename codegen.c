@@ -4,8 +4,6 @@
 static FILE *OutputFile;
 // 记录栈深度
 static int Depth;
-// 用于函数参数的寄存器们
-static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"};
 // 当前的函数
 static Obj *CurrentFn;
 
@@ -41,9 +39,9 @@ static void push(void) {
 }
 
 // 弹栈，将sp指向的地址的值，弹出到a1
-static void pop(char *Reg) {
-  printLn("  # 弹栈，将栈顶的值存入%s", Reg);
-  printLn("  ld %s, 0(sp)", Reg);
+static void pop(int Reg) {
+  printLn("  # 弹栈，将栈顶的值存入a%d", Reg);
+  printLn("  ld a%d, 0(sp)", Reg);
   printLn("  addi sp, sp, 8");
   Depth--;
 }
@@ -57,9 +55,9 @@ static void pushF(void) {
 }
 
 // 对于浮点类型进行弹栈
-static void popF(char *Reg) {
-  printLn("  # 弹栈，将栈顶的值存入%s", Reg);
-  printLn("  fld %s, 0(sp)", Reg);
+static void popF(int Reg) {
+  printLn("  # 弹栈，将栈顶的值存入fa%d", Reg);
+  printLn("  fld fa%d, 0(sp)", Reg);
   printLn("  addi sp, sp, 8");
   Depth--;
 }
@@ -144,7 +142,7 @@ static void load(Type *Ty) {
 
 // 将栈顶值(为一个地址)存入a0
 static void store(Type *Ty) {
-  pop("a1");
+  pop(1);
 
   switch (Ty->Kind) {
   case TY_STRUCT:
@@ -392,6 +390,28 @@ static void cast(Type *From, Type *To) {
   }
 }
 
+// 将函数实参计算后压入栈中
+static void pushArgs(Node *Args) {
+  // 参数为空直接返回
+  if (!Args)
+    return;
+
+  // 递归到最后一个实参进行
+  pushArgs(Args->Next);
+
+  printLn("\n  # ↓对%s表达式进行计算，然后压栈↓",
+          isFloNum(Args->Ty) ? "浮点" : "整型");
+  // 计算出表达式
+  genExpr(Args);
+  // 根据表达式结果的类型进行压栈
+  if (isFloNum(Args->Ty)) {
+    pushF();
+  } else {
+    push();
+  }
+  printLn("  # ↑结束压栈↑");
+}
+
 // 生成表达式
 static void genExpr(Node *Nd) {
   // .loc 文件编号 行号
@@ -577,18 +597,40 @@ static void genExpr(Node *Nd) {
     return;
   // 函数调用
   case ND_FUNCALL: {
-    // 记录参数个数
-    int NArgs = 0;
     // 计算所有参数的值，正向压栈
-    for (Node *Arg = Nd->Args; Arg; Arg = Arg->Next) {
-      genExpr(Arg);
-      push();
-      NArgs++;
-    }
+    pushArgs(Nd->Args);
 
     // 反向弹栈，a0->参数1，a1->参数2……
-    for (int i = NArgs - 1; i >= 0; i--)
-      pop(ArgReg[i]);
+    int GP = 0, FP = 0;
+    // 读取函数形参中的参数类型
+    Type *CurArg = Nd->FuncType->Params;
+    for (Node *Arg = Nd->Args; Arg; Arg = Arg->Next) {
+      // 如果是可变参数函数
+      // 匹配到空参数（最后一个）的时候，将剩余的整型寄存器弹栈
+      if (Nd->FuncType->IsVariadic && CurArg == NULL) {
+        if (GP < 8) {
+          printLn("  # a%d传递可变实参", GP);
+          pop(GP++);
+        }
+        continue;
+      }
+
+      CurArg = CurArg->Next;
+      if (isFloNum(Arg->Ty)) {
+        if (FP < 8) {
+          printLn("  # fa%d传递浮点参数", FP);
+          popF(FP++);
+        } else if (GP < 8) {
+          printLn("  # a%d传递浮点参数", GP);
+          pop(GP++);
+        }
+      } else {
+        if (GP < 8) {
+          printLn("  # a%d传递整型参数", GP);
+          pop(GP++);
+        }
+      }
+    }
 
     // 调用函数
 
@@ -650,7 +692,7 @@ static void genExpr(Node *Nd) {
     // 递归到左节点
     genExpr(Nd->LHS);
     // 将结果弹栈到fa1
-    popF("fa1");
+    popF(1);
 
     // 生成各个二叉树节点
     // float对应s(single)后缀，double对应d(double)后缀
@@ -702,7 +744,7 @@ static void genExpr(Node *Nd) {
   // 递归到左节点
   genExpr(Nd->LHS);
   // 将结果弹栈到a1
-  pop("a1");
+  pop(1);
 
   // 生成各个二叉树节点
   char *Suffix = Nd->LHS->Ty->Kind == TY_LONG || Nd->LHS->Ty->Base ? "" : "w";
@@ -1061,21 +1103,21 @@ static void emitData(Obj *Prog) {
 
 // 将整形寄存器的值存入栈中
 static void storeGeneral(int Reg, int Offset, int Size) {
-  printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
+  printLn("  # 将a%d寄存器的值存入%d(fp)的栈地址", Reg, Offset);
   printLn("  li t0, %d", Offset);
   printLn("  add t0, fp, t0");
   switch (Size) {
   case 1:
-    printLn("  sb %s, 0(t0)", ArgReg[Reg]);
+    printLn("  sb a%d, 0(t0)", Reg);
     return;
   case 2:
-    printLn("  sh %s, 0(t0)", ArgReg[Reg]);
+    printLn("  sh a%d, 0(t0)", Reg);
     return;
   case 4:
-    printLn("  sw %s, 0(t0)", ArgReg[Reg]);
+    printLn("  sw a%d, 0(t0)", Reg);
     return;
   case 8:
-    printLn("  sd %s, 0(t0)", ArgReg[Reg]);
+    printLn("  sd a%d, 0(t0)", Reg);
     return;
   }
   unreachable();

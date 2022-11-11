@@ -46,3 +46,12 @@ int add_all(int n, ...) {
     sum += va_arg(ap, int);
   return sum;
 }
+
+// [144] 允许函数使用浮点数
+float add_float(float x, float y) {
+  return x + y;
+}
+
+double add_double(double x, double y) {
+  return x + y;
+}
