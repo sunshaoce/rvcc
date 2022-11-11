@@ -1,5 +1,5 @@
 # C编译器参数：使用C11标准，生成debug信息，禁止将未初始化的全局变量放入到common段
-CFLAGS=-std=c11 -g -fno-common
+CFLAGS=-std=c11 -g -fno-common -Wall -Wno-switch
 # 指定C编译器，来构建项目
 CC=gcc
 # C源代码文件，表示所有的.c结尾的文件

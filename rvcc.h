@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -92,9 +93,9 @@ struct Token {
 
 // 去除了static用以在多个文件间访问
 // 报错函数
-void error(char *Fmt, ...);
-void errorAt(char *Loc, char *Fmt, ...);
-void errorTok(Token *Tok, char *Fmt, ...);
+noreturn void error(char *Fmt, ...);
+noreturn void errorAt(char *Loc, char *Fmt, ...);
+noreturn void errorTok(Token *Tok, char *Fmt, ...);
 // 警告函数
 void warnTok(Token *Tok, char *Fmt, ...);
 // 判断Token与Str的关系
