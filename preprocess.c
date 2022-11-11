@@ -305,6 +305,15 @@ static long evalConstExpr(Token **Rest, Token *Tok) {
   if (Expr->Kind == TK_EOF)
     errorTok(Start, "no expression");
 
+  // 在计算常量表达式前，将遗留的标识符替换为0
+  for (Token *T = Expr; T->Kind != TK_EOF; T = T->Next) {
+    if (T->Kind == TK_IDENT) {
+      Token *Next = T->Next;
+      *T = *newNumToken(0, T);
+      T->Next = Next;
+    }
+  }
+
   // 计算常量表达式的值
   Token *Rest2;
   long Val = constExpr(&Rest2, Expr);
