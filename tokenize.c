@@ -642,12 +642,58 @@ File *newFile(char *Name, int FileNo, char *Contents) {
   return FP;
 }
 
+// 移除续行，即反斜杠+换行符的形式
+static void removeBackslashNewline(char *P) {
+  // 旧字符串的索引I（从0开始）
+  // 新字符串的索引J（从0开始）
+  // 因为J始终<=I，所以二者共用空间，不会有问题
+  int I = 0, J = 0;
+
+  // 为了维持行号不变，这里记录了删除的行数
+  int N = 0;
+
+  // 如果指向的字符存在
+  while (P[I]) {
+    // 如果是 '\\'和'\n'
+    if (P[I] == '\\' && P[I + 1] == '\n') {
+      // I跳过这两个字符
+      I += 2;
+      // 删除的行数+1
+      N++;
+    }
+    // 如果是换行符
+    else if (P[I] == '\n') {
+      // P[J]='\n'
+      // I、J都+1
+      P[J++] = P[I++];
+      // 如果删除过N个续行，那么在这里增加N个换行
+      // 以保证行号不变
+      for (; N > 0; N--)
+        P[J++] = '\n';
+    }
+    // 其他情况，P[J]=P[I]
+    // I、J都+1
+    else {
+      P[J++] = P[I++];
+    }
+  }
+
+  // 如果最后还删除过N个续行，那么在这里增加N个换行
+  for (; N > 0; N--)
+    P[J++] = '\n';
+  // 以'\0'结束
+  P[J] = '\0';
+}
+
 // 词法分析文件
 Token *tokenizeFile(char *Path) {
   // 读取文件内容
   char *P = readFile(Path);
   if (!P)
     return NULL;
+
+  // 移除续行
+  removeBackslashNewline(P);
 
   // 文件编号
   static int FileNo;
