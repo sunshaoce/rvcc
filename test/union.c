@@ -8,6 +8,10 @@ int main() {
   ASSERT(0, ({ union { int a; char b[4]; } x; x.a = 515; x.b[2]; }));
   ASSERT(0, ({ union { int a; char b[4]; } x; x.a = 515; x.b[3]; }));
 
+  // [55] 支持结构体赋值
+  ASSERT(3, ({ union {int a,b;} x,y; x.a=3; y.a=5; y=x; y.a; }));
+  ASSERT(3, ({ union {struct {int a,b;} c;} x,y; x.c.b=3; y.c.b=5; y=x; y.c.b; }));
+
   printf("OK\n");
   return 0;
 }
