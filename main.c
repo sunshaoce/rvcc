@@ -312,7 +312,7 @@ static char *findFile(char *Pattern) {
 }
 
 // 文件存在时，为真
-static bool fileExists(char *Path) {
+bool fileExists(char *Path) {
   struct stat St;
   return !stat(Path, &St);
 }

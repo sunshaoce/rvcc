@@ -373,4 +373,7 @@ int alignTo(int N, int Align);
 // 主程序，驱动文件
 //
 
+// 判断文件存在
+bool fileExists(char *Path);
+
 extern char *BaseFile;
