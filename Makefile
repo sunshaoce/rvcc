@@ -24,7 +24,7 @@ $(OBJS): rvcc.h
 
 # 测试标签，运行测试
 test/%.exe: rvcc test/%.c
-	./rvcc -c -o test/$*.o test/$*.c
+	./rvcc -Itest -c -o test/$*.o test/$*.c
 	$(CC) -o $@ test/$*.o -xc test/common
 #	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.o -xc test/common
 
@@ -52,7 +52,7 @@ stage2/%.o: rvcc self.py %.c
 # 利用stage2的rvcc去进行测试
 stage2/test/%.exe: stage2/rvcc test/%.c
 	mkdir -p stage2/test
-	./stage2/rvcc -c -o stage2/test/$*.o test/$*.c
+	./stage2/rvcc -Itest -c -o stage2/test/$*.o test/$*.c
 	$(CC) -o $@ stage2/test/$*.o -xc test/common
 
 test-stage2: $(TESTS:test/%=stage2/test/%)

@@ -682,6 +682,21 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   return true;
 }
 
+// 搜索引入路径区
+static char *searchIncludePaths(char *Filename) {
+  // 以"/"开头的视为绝对路径
+  if (Filename[0] == '/')
+    return Filename;
+
+  // 从引入路径区查找文件
+  for (int I = 0; I < IncludePaths.Len; I++) {
+    char *Path = format("%s/%s", IncludePaths.Data[I], Filename);
+    if (fileExists(Path))
+      return Path;
+  }
+  return NULL;
+}
+
 // 读取#include参数
 static char *readIncludeFilename(Token **Rest, Token *Tok, bool *IsDquote) {
   // 匹配样式1: #include "foo.h"
@@ -766,7 +781,7 @@ static Token *preprocess2(Token *Tok) {
       char *Filename = readIncludeFilename(&Tok, Tok->Next, &IsDquote);
 
       // 不以"/"开头的视为相对路径
-      if (Filename[0] != '/') {
+      if (Filename[0] != '/' && IsDquote) {
         // 以当前文件所在目录为起点
         // 路径为：终结符文件名所在的文件夹路径/当前终结符名
         char *Path =
@@ -778,8 +793,9 @@ static Token *preprocess2(Token *Tok) {
         }
       }
 
-      // 直接引入文件
-      Tok = includeFile(Tok, Filename, Start->Next->Next);
+      // 直接引入文件，搜索引入路径
+      char *Path = searchIncludePaths(Filename);
+      Tok = includeFile(Tok, Path ? Path : Filename, Start->Next->Next);
       continue;
     }
 

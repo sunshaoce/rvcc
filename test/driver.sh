@@ -108,4 +108,11 @@ echo "#include \"$tmp/out1\"" | $rvcc -E -o $tmp/out2 -
 cat $tmp/out2 | grep -q foo
 check '-E and -o'
 
+# [185] 支持 -I<Dir> 选项
+# -I
+mkdir $tmp/dir
+echo foo > $tmp/dir/i-option-test
+echo "#include \"i-option-test\"" | $rvcc -I$tmp/dir -E - | grep -q foo
+check -I
+
 echo OK
