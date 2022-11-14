@@ -5,6 +5,9 @@
 // 注意 ~ 应替换为具体的 /home/用户名 的路径
 static char *RVPath = "";
 
+// 引入路径区
+StringArray IncludePaths;
+
 // -E选项
 static bool OptE;
 // -S选项
@@ -35,7 +38,14 @@ static void usage(int Status) {
 }
 
 // 判断需要一个参数的选项，是否具有一个参数
-static bool takeArg(char *Arg) { return !strcmp(Arg, "-o"); }
+static bool takeArg(char *Arg) {
+  char *X[] = {"-o", "-I"};
+
+  for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
+    if (!strcmp(Arg, X[I]))
+      return true;
+  return false;
+}
 
 // 解析传入程序的参数
 static void parseArgs(int Argc, char **Argv) {
@@ -94,6 +104,12 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-E
     if (!strcmp(Argv[I], "-E")) {
       OptE = true;
+      continue;
+    }
+
+    // 解析-I
+    if (!strncmp(Argv[I], "-I", 2)) {
+      strArrayPush(&IncludePaths, Argv[I] + 2);
       continue;
     }
 

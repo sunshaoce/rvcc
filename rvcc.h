@@ -376,4 +376,6 @@ int alignTo(int N, int Align);
 // 判断文件存在
 bool fileExists(char *Path);
 
+// 引入路径区
+extern StringArray IncludePaths;
 extern char *BaseFile;
