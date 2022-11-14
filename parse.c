@@ -92,6 +92,8 @@ static char *ContLabel;
 // 否则为空。
 static Node *CurrentSwitch;
 
+static Obj *BuiltinAlloca;
+
 // program = (typedef | functionDefinition* | global-variable)*
 // functionDefinition = declspec declarator "(" ")" "{" compoundStmt*
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
@@ -219,6 +221,7 @@ static int64_t eval(Node *Nd);
 static int64_t eval2(Node *Nd, char **Label);
 static int64_t evalRVal(Node *Nd, char **Label);
 static double evalDouble(Node *Nd);
+static bool isConstExpr(Node *Nd);
 static Node *assign(Token **Rest, Token *Tok);
 static Node *conditional(Token **Rest, Token *Tok);
 static Node *logOr(Token **Rest, Token *Tok);
@@ -763,10 +766,13 @@ static Type *arrayDimensions(Token **Rest, Token *Tok, Type *Ty) {
   }
 
   // 有数组维数的情况
-  int Sz = constExpr(&Tok, Tok);
+  Node *Expr = conditional(&Tok, Tok);
   Tok = skip(Tok, "]");
   Ty = typeSuffix(Rest, Tok, Ty);
-  return arrayOf(Ty, Sz);
+
+  if (Ty->Kind == TY_VLA || !isConstExpr(Expr))
+    return VLAOf(Ty, Expr);
+  return arrayOf(Ty, eval(Expr));
 }
 
 // typeSuffix = "(" funcParams | "[" arrayDimensions | ε
@@ -965,6 +971,36 @@ static Type *typeofSpecifier(Token **Rest, Token *Tok) {
   return Ty;
 }
 
+// Generate code for computing a VLA size.
+static Node *computeVLASize(Type *Ty, Token *Tok) {
+  Node *Nd = newNode(ND_NULL_EXPR, Tok);
+  if (Ty->Base)
+    Nd = newBinary(ND_COMMA, Nd, computeVLASize(Ty->Base, Tok), Tok);
+
+  if (Ty->Kind != TY_VLA)
+    return Nd;
+
+  Node *BaseSz;
+  if (Ty->Base->Kind == TY_VLA)
+    BaseSz = newVarNode(Ty->Base->VLASize, Tok);
+  else
+    BaseSz = newNum(Ty->Base->Size, Tok);
+
+  Ty->VLASize = newLVar("", TyULong);
+  Node *Expr = newBinary(ND_ASSIGN, newVarNode(Ty->VLASize, Tok),
+                         newBinary(ND_MUL, Ty->VLALen, BaseSz, Tok), Tok);
+  return newBinary(ND_COMMA, Nd, Expr, Tok);
+}
+
+static Node *new_alloca(Node *Sz) {
+  Node *Nd = newUnary(ND_FUNCALL, newVarNode(BuiltinAlloca, Sz->Tok), Sz->Tok);
+  Nd->FuncType = BuiltinAlloca->Ty;
+  Nd->Ty = BuiltinAlloca->Ty->ReturnTy;
+  Nd->Args = Sz;
+  addType(Sz);
+  return Nd;
+}
+
 // declaration = declspec (declarator ("=" initializer)?
 //                         ("," declarator ("=" initializer)?)*)? ";"
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy,
@@ -994,6 +1030,27 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy,
       pushScope(getIdent(Ty->Name))->Var = Var;
       if (equal(Tok, "="))
         GVarInitializer(&Tok, Tok->Next, Var);
+      continue;
+    }
+
+    // Generate code for computing a VLA size. We need to do this
+    // even if ty is not VLA because ty may be a pointer to VLA
+    // (e.g. int (*foo)[n][m] where n and m are variables.)
+    Cur = Cur->Next = newUnary(ND_EXPR_STMT, computeVLASize(Ty, Tok), Tok);
+
+    if (Ty->Kind == TY_VLA) {
+      if (equal(Tok, "="))
+        errorTok(Tok, "variable-sized object may not be initialized");
+
+      // Variable length arrays (VLAs) are translated to alloca() calls.
+      // For example, `int x[n+2]` is translated to `tmp = n + 2,
+      // x = alloca(tmp)`.
+      Obj *Var = newLVar(getIdent(Ty->Name), Ty);
+      Token *Tok = Ty->Name;
+      Node *Expr = newBinary(ND_ASSIGN, newVarNode(Var, Tok),
+                             new_alloca(newVarNode(Ty->VLASize, Tok)), Tok);
+
+      Cur = Cur->Next = newUnary(ND_EXPR_STMT, Expr, Tok);
       continue;
     }
 
@@ -2220,6 +2277,44 @@ static int64_t evalRVal(Node *Nd, char **Label) {
   return -1;
 }
 
+static bool isConstExpr(Node *Nd) {
+  addType(Nd);
+
+  switch (Nd->Kind) {
+  case ND_ADD:
+  case ND_SUB:
+  case ND_MUL:
+  case ND_DIV:
+  case ND_BITAND:
+  case ND_BITOR:
+  case ND_BITXOR:
+  case ND_SHL:
+  case ND_SHR:
+  case ND_EQ:
+  case ND_NE:
+  case ND_LT:
+  case ND_LE:
+  case ND_LOGAND:
+  case ND_LOGOR:
+    return isConstExpr(Nd->LHS) && isConstExpr(Nd->RHS);
+  case ND_COND:
+    if (!isConstExpr(Nd->Cond))
+      return false;
+    return isConstExpr(eval(Nd->Cond) ? Nd->Then : Nd->Els);
+  case ND_COMMA:
+    return isConstExpr(Nd->RHS);
+  case ND_NEG:
+  case ND_NOT:
+  case ND_BITNOT:
+  case ND_CAST:
+    return isConstExpr(Nd->LHS);
+  case ND_NUM:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // 解析常量表达式
 int64_t constExpr(Token **Rest, Token *Tok) {
   // 进行常量表达式的构造
@@ -3215,6 +3310,8 @@ static Node *primary(Token **Rest, Token *Tok) {
       isTypename(Tok->Next->Next)) {
     Type *Ty = typename(&Tok, Tok->Next->Next);
     *Rest = skip(Tok, ")");
+    if (Ty->Kind == TY_VLA)
+      return newVarNode(Ty->VLASize, Tok);
     return newULong(Ty->Size, Start);
   }
 
@@ -3222,6 +3319,8 @@ static Node *primary(Token **Rest, Token *Tok) {
   if (equal(Tok, "sizeof")) {
     Node *Nd = unary(Rest, Tok->Next);
     addType(Nd);
+    if (Nd->Ty->Kind == TY_VLA)
+      return newVarNode(Nd->Ty->VLASize, Tok);
     return newULong(Nd->Ty->Size, Tok);
   }
 
@@ -3515,10 +3614,10 @@ static void scanGlobals(void) {
 }
 
 static void declareBuiltinFunctions(void) {
-  Type *ty = funcType(pointerTo(TyVoid));
-  ty->Params = copyType(TyInt);
-  Obj *Builtin = newGVar("alloca", ty);
-  Builtin->IsDefinition = false;
+  Type *Ty = funcType(pointerTo(TyVoid));
+  Ty->Params = copyType(TyInt);
+  BuiltinAlloca = newGVar("alloca", Ty);
+  BuiltinAlloca->IsDefinition = false;
 }
 
 // 语法解析入口函数
