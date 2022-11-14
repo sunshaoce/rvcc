@@ -311,20 +311,21 @@ Obj *parse(Token *Tok);
 
 // 类型种类
 typedef enum {
-  TY_VOID,   // void类型
-  TY_BOOL,   // _Bool布尔类型
-  TY_CHAR,   // char字符类型
-  TY_SHORT,  // short短整型
-  TY_INT,    // int整型
-  TY_LONG,   // long长整型
-  TY_FLOAT,  // float类型
-  TY_DOUBLE, // double类型
-  TY_ENUM,   // enum枚举类型
-  TY_PTR,    // 指针
-  TY_FUNC,   // 函数
-  TY_ARRAY,  // 数组
-  TY_STRUCT, // 结构体
-  TY_UNION,  // 联合体
+  TY_VOID,    // void类型
+  TY_BOOL,    // _Bool布尔类型
+  TY_CHAR,    // char字符类型
+  TY_SHORT,   // short短整型
+  TY_INT,     // int整型
+  TY_LONG,    // long长整型
+  TY_FLOAT,   // float类型
+  TY_DOUBLE,  // double类型
+  TY_ENUM,    // enum枚举类型
+  TY_PTR,     // 指针
+  TY_FUNC,    // 函数
+  TY_ARRAY,   // 数组
+  TY_VLA,     // 可变长度数组，variable-length array
+  TY_STRUCT,  // 结构体
+  TY_UNION,   // 联合体
 } TypeKind;
 
 struct Type {
@@ -343,6 +344,10 @@ struct Type {
 
   // 数组
   int ArrayLen; // 数组长度, 元素总个数
+
+  // 可变长数组
+  Node *VLALen; // # of elements
+  Obj *VLASize; // sizeof() value
 
   // 结构体
   Member *Mems;
@@ -408,6 +413,8 @@ Type *pointerTo(Type *Base);
 void addType(Node *Nd);
 // 数组类型
 Type *arrayOf(Type *Base, int Size);
+// 可变长数组类型
+Type *VLAOf(Type *Base, Node *Expr);
 // 枚举类型
 Type *enumType(void);
 // 结构体类型
