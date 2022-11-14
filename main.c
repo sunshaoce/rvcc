@@ -47,6 +47,17 @@ static bool takeArg(char *Arg) {
   return false;
 }
 
+// 增加默认引入路径
+static void addDefaultIncludePaths(char *Argv0) {
+  // rvcc特定的引入文件被安装到了argv[0]的./include位置
+  strArrayPush(&IncludePaths, format("%s/include", dirname(strdup(Argv0))));
+
+  // 支持标准的引入路径
+  strArrayPush(&IncludePaths, "/usr/local/include");
+  strArrayPush(&IncludePaths, "/usr/include/riscv64-linux-gnu");
+  strArrayPush(&IncludePaths, "/usr/include");
+}
+
 // 解析传入程序的参数
 static void parseArgs(int Argc, char **Argv) {
   // 确保需要一个参数的选项，存在一个参数
@@ -464,6 +475,8 @@ int main(int Argc, char **Argv) {
   // 如果指定了-cc1选项
   // 直接编译C文件到汇编文件
   if (OptCC1) {
+    // 增加默认引入路径
+    addDefaultIncludePaths(Argv[0]);
     cc1();
     return 0;
   }
