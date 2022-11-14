@@ -78,6 +78,13 @@ static void genAddr(Node *Nd) {
     genExpr(Nd->LHS);
     genAddr(Nd->RHS);
     return;
+  // 结构体成员
+  case ND_MEMBER:
+    genAddr(Nd->LHS);
+    printLn("  # 计算成员变量的地址偏移量");
+    printLn("  li t0, %d", Nd->Mem->Offset);
+    printLn("  add a0, a0, t0");
+    return;
   default:
     break;
   }
@@ -129,6 +136,7 @@ static void genExpr(Node *Nd) {
     return;
   // 变量
   case ND_VAR:
+  case ND_MEMBER:
     // 计算出变量的地址，然后存入a0
     genAddr(Nd);
     load(Nd->Ty);

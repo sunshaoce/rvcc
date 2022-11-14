@@ -166,8 +166,8 @@ static int readPunct(char *Ptr) {
 // 判断是否为关键字
 static bool isKeyword(Token *Tok) {
   // 关键字列表
-  static char *Kw[] = {"return", "if",  "else",   "for",
-                       "while",  "int", "sizeof", "char"};
+  static char *Kw[] = {"return", "if",     "else", "for",   "while",
+                       "int",    "sizeof", "char", "struct"};
 
   // 遍历关键字列表匹配
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
