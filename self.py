@@ -91,6 +91,7 @@ int atexit(void (*)(void));
 FILE *open_memstream(char **ptr, size_t *sizeloc);
 char *dirname(char *path);
 char *strncpy(char *dest, char *src, long n);
+int stat(char *pathname, struct stat *statbuf);
 """)
 
 # 对文件内容进行替换

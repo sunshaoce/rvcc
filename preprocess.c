@@ -474,10 +474,10 @@ static MacroArg *findArg(MacroArg *Args, Token *Tok) {
 }
 
 // 将终结符链表中的所有终结符都连接起来，然后返回一个新的字符串
-static char *joinTokens(Token *Tok) {
+static char *joinTokens(Token *Tok, Token *End) {
   // 计算最终终结符的长度
   int Len = 1;
-  for (Token *T = Tok; T && T->Kind != TK_EOF; T = T->Next) {
+  for (Token *T = Tok; T != End && T->Kind != TK_EOF; T = T->Next) {
     // 非第一个，且前面有空格，计数加一
     if (T != Tok && T->HasSpace)
       Len++;
@@ -490,7 +490,7 @@ static char *joinTokens(Token *Tok) {
 
   // 复制终结符的文本
   int Pos = 0;
-  for (Token *T = Tok; T && T->Kind != TK_EOF; T = T->Next) {
+  for (Token *T = Tok; T != End && T->Kind != TK_EOF; T = T->Next) {
     // 非第一个，且前面有空格，设为空格
     if (T != Tok && T->HasSpace)
       Buf[Pos++] = ' ';
@@ -506,7 +506,7 @@ static char *joinTokens(Token *Tok) {
 // 将所有实参中的终结符连接起来，然后返回一个字符串的终结符
 static Token *stringize(Token *Hash, Token *Arg) {
   // 创建一个字符串的终结符
-  char *S = joinTokens(Arg);
+  char *S = joinTokens(Arg, NULL);
   // 我们需要一个位置用来报错，所以使用了宏的名字
   return newStrToken(S, Hash);
 }
@@ -682,6 +682,58 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   return true;
 }
 
+// 读取#include参数
+static char *readIncludeFilename(Token **Rest, Token *Tok, bool *IsDquote) {
+  // 匹配样式1: #include "foo.h"
+  if (Tok->Kind == TK_STR) {
+    // #include 的双引号文件名是一种特殊的终结符
+    // 不能转义其中的任何转义字符。
+    // 例如，“C:\foo”中的“\f”不是换页符，而是\和f。
+    // 所以此处不使用token->str。
+    *IsDquote = true;
+    *Rest = skipLine(Tok->Next);
+    return strndup(Tok->Loc + 1, Tok->Len - 2);
+  }
+
+  // 匹配样式2: #include <foo.h>
+  if (equal(Tok, "<")) {
+    // 从"<"和">"间构建文件名.
+    Token *Start = Tok;
+
+    // 查找">"
+    for (; !equal(Tok, ">"); Tok = Tok->Next)
+      if (Tok->AtBOL || Tok->Kind == TK_EOF)
+        errorTok(Tok, "expected '>'");
+
+    // 没有引号
+    *IsDquote = false;
+    // 跳到行首
+    *Rest = skipLine(Tok->Next);
+    // "<"到">"前拼接为字符串
+    return joinTokens(Start->Next, Tok);
+  }
+
+  // 匹配样式3: #include FOO
+  if (Tok->Kind == TK_IDENT) {
+    // FOO 必须宏展开为单个字符串标记或 "<" ... ">" 序列
+    Token *Tok2 = preprocess2(copyLine(Rest, Tok));
+    // 然后读取引入的文件名
+    return readIncludeFilename(&Tok2, Tok2, IsDquote);
+  }
+
+  errorTok(Tok, "expected a filename");
+  return NULL;
+}
+
+// 引入文件
+static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
+  // 词法分析文件
+  Token *Tok2 = tokenizeFile(Path);
+  if (!Tok2)
+    errorTok(FilenameTok, "%s: cannot open file: %s", Path, strerror(errno));
+  return append(Tok2, Tok);
+}
+
 // 遍历终结符，处理宏和指示
 static Token *preprocess2(Token *Tok) {
   Token Head = {};
@@ -708,31 +760,26 @@ static Token *preprocess2(Token *Tok) {
 
     // 匹配#include
     if (equal(Tok, "include")) {
-      // 跳过"
-      Tok = Tok->Next;
+      // 是否有双引号
+      bool IsDquote;
+      // 获取引入的文件名
+      char *Filename = readIncludeFilename(&Tok, Tok->Next, &IsDquote);
 
-      // 需要后面跟文件名
-      if (Tok->Kind != TK_STR)
-        errorTok(Tok, "expected a filename");
-
-      // 文件路径
-      char *Path;
-      if (Tok->Str[0] == '/')
-        // "/"开头的视为绝对路径
-        Path = Tok->Str;
-      else
+      // 不以"/"开头的视为相对路径
+      if (Filename[0] != '/') {
         // 以当前文件所在目录为起点
         // 路径为：终结符文件名所在的文件夹路径/当前终结符名
-        Path = format("%s/%s", dirname(strdup(Tok->File->Name)), Tok->Str);
+        char *Path =
+            format("%s/%s", dirname(strdup(Start->File->Name)), Filename);
+        // 路径存在时引入文件
+        if (fileExists(Path)) {
+          Tok = includeFile(Tok, Path, Start->Next->Next);
+          continue;
+        }
+      }
 
-      // 词法解析文件
-      Token *Tok2 = tokenizeFile(Path);
-      if (!Tok2)
-        errorTok(Tok, "%s", strerror(errno));
-      // 处理多余的终结符
-      Tok = skipLine(Tok->Next);
-      // 将Tok2接续到Tok->Next的位置
-      Tok = append(Tok2, Tok);
+      // 直接引入文件
+      Tok = includeFile(Tok, Filename, Start->Next->Next);
       continue;
     }
 
