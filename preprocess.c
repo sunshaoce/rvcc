@@ -919,8 +919,66 @@ static Token *preprocess2(Token *Tok) {
   return Head.Next;
 }
 
+// 定义预定义的宏
+static void defineMacro(char *Name, char *Buf) {
+  Token *Tok = tokenize(newFile("<built-in>", 1, Buf));
+  addMacro(Name, true, Tok);
+}
+
+// 初始化预定义的宏
+static void initMacros(void) {
+  defineMacro("_LP64", "1");
+  defineMacro("__C99_MACRO_WITH_VA_ARGS", "1");
+  defineMacro("__ELF__", "1");
+  defineMacro("__LP64__", "1");
+  defineMacro("__SIZEOF_DOUBLE__", "8");
+  defineMacro("__SIZEOF_FLOAT__", "4");
+  defineMacro("__SIZEOF_INT__", "4");
+  defineMacro("__SIZEOF_LONG_DOUBLE__", "8");
+  defineMacro("__SIZEOF_LONG_LONG__", "8");
+  defineMacro("__SIZEOF_LONG__", "8");
+  defineMacro("__SIZEOF_POINTER__", "8");
+  defineMacro("__SIZEOF_PTRDIFF_T__", "8");
+  defineMacro("__SIZEOF_SHORT__", "2");
+  defineMacro("__SIZEOF_SIZE_T__", "8");
+  defineMacro("__SIZE_TYPE__", "unsigned long");
+  defineMacro("__STDC_HOSTED__", "1");
+  defineMacro("__STDC_NO_ATOMICS__", "1");
+  defineMacro("__STDC_NO_COMPLEX__", "1");
+  defineMacro("__STDC_NO_THREADS__", "1");
+  defineMacro("__STDC_NO_VLA__", "1");
+  defineMacro("__STDC_VERSION__", "201112L");
+  defineMacro("__STDC__", "1");
+  defineMacro("__USER_LABEL_PREFIX__", "");
+  defineMacro("__alignof__", "_Alignof");
+  defineMacro("__rvcc__", "1");
+  defineMacro("__const__", "const");
+  defineMacro("__gnu_linux__", "1");
+  defineMacro("__inline__", "inline");
+  defineMacro("__linux", "1");
+  defineMacro("__linux__", "1");
+  defineMacro("__signed__", "signed");
+  defineMacro("__typeof__", "typeof");
+  defineMacro("__unix", "1");
+  defineMacro("__unix__", "1");
+  defineMacro("__volatile__", "volatile");
+  defineMacro("linux", "1");
+  defineMacro("unix", "1");
+  defineMacro("__riscv_mul", "1");
+  defineMacro("__riscv_muldiv", "1");
+  defineMacro("__riscv_fdiv", "1");
+  defineMacro("__riscv_xlen", "64");
+  defineMacro("__riscv", "1");
+  defineMacro("__riscv64", "1");
+  defineMacro("__riscv_div", "1");
+  defineMacro("__riscv_float_abi_double", "1");
+  defineMacro("__riscv_flen", "64");
+}
+
 // 预处理器入口函数
 Token *preprocess(Token *Tok) {
+  // 初始化预定义的宏
+  initMacros();
   // 处理宏和指示
   Tok = preprocess2(Tok);
   // 此时#if应该都被清空了，否则报错
