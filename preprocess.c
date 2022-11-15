@@ -904,6 +904,10 @@ static Token *preprocess2(Token *Tok) {
       continue;
     }
 
+    // 匹配#error
+    if (equal(Tok, "error"))
+      errorTok(Tok, "error");
+
     // 支持空指示
     if (Tok->AtBOL)
       continue;
