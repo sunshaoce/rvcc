@@ -124,6 +124,11 @@ int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
 // [152] 在函数参数中退化函数为指针
 int param_decay2(int x()) { return x(); }
 
+// [191] 支持 __func__
+char *func_fn(void) {
+  return __func__;
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -219,6 +224,11 @@ int main() {
 
   // [152] 在函数参数中退化函数为指针
   ASSERT(3, param_decay2(ret3));
+
+  printf("[191] 支持 __func__\n");
+  ASSERT(5, sizeof(__func__));
+  ASSERT(0, strcmp("main", __func__));
+  ASSERT(0, strcmp("func_fn", func_fn()));
 
   printf("OK\n");
   return 0;
