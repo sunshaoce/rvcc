@@ -25,6 +25,7 @@ struct Macro {
   char *Name;              // 名称
   bool IsObjlike;          // 宏变量为真，或者宏函数为假
   MacroParam *Params;      // 宏函数参数
+  bool IsVariadic;         // 是否为可变参数的
   Token *Body;             // 对应的终结符
   bool Deleted;            // 是否被删除了
   macroHandlerFn *Handler; // 宏处理函数
@@ -365,13 +366,21 @@ static Macro *addMacro(char *Name, bool IsObjlike, Token *Body) {
 }
 
 // 读取宏形参
-static MacroParam *readMacroParams(Token **Rest, Token *Tok) {
+static MacroParam *readMacroParams(Token **Rest, Token *Tok, bool *IsVariadic) {
   MacroParam Head = {};
   MacroParam *Cur = &Head;
 
   while (!equal(Tok, ")")) {
     if (Cur != &Head)
       Tok = skip(Tok, ",");
+
+    // 处理可变参数
+    if (equal(Tok, "...")) {
+      *IsVariadic = true;
+      // "..."应为最后一个参数
+      *Rest = skip(Tok->Next, ")");
+      return Head.Next;
+    }
 
     // 如果不是标识符报错
     if (Tok->Kind != TK_IDENT)
@@ -400,10 +409,14 @@ static void readMacroDefinition(Token **Rest, Token *Tok) {
   // 判断是宏变量还是宏函数，括号前没有空格则为宏函数
   if (!Tok->HasSpace && equal(Tok, "(")) {
     // 构造形参
-    MacroParam *Params = readMacroParams(&Tok, Tok->Next);
+    bool IsVariadic = false;
+    MacroParam *Params = readMacroParams(&Tok, Tok->Next, &IsVariadic);
+
     // 增加宏函数
     Macro *M = addMacro(Name, false, copyLine(Rest, Tok));
     M->Params = Params;
+    // 传递是否为可变参数的值
+    M->IsVariadic = IsVariadic;
   } else {
     // 增加宏变量
     addMacro(Name, true, copyLine(Rest, Tok));
@@ -411,13 +424,20 @@ static void readMacroDefinition(Token **Rest, Token *Tok) {
 }
 
 // 读取单个宏实参
-static MacroArg *readMacroArgOne(Token **Rest, Token *Tok) {
+static MacroArg *readMacroArgOne(Token **Rest, Token *Tok, bool ReadRest) {
   Token Head = {};
   Token *Cur = &Head;
   int Level = 0;
 
   // 读取实参对应的终结符
-  while (Level > 0 || !equal(Tok, ",") && !equal(Tok, ")")) {
+  while (true) {
+    // 终止条件
+    if (Level == 0 && equal(Tok, ")"))
+      break;
+    // 在这里ReadRest为真时，则可以读取多个终结符
+    if (Level == 0 && !ReadRest && equal(Tok, ","))
+      break;
+
     if (Tok->Kind == TK_EOF)
       errorTok(Tok, "premature end of input");
 
@@ -442,7 +462,8 @@ static MacroArg *readMacroArgOne(Token **Rest, Token *Tok) {
 }
 
 // 读取宏实参
-static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params) {
+static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params,
+                               bool IsVariadic) {
   Token *Start = Tok;
   Tok = Tok->Next->Next;
 
@@ -455,14 +476,33 @@ static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params) {
     if (Cur != &Head)
       Tok = skip(Tok, ",");
     // 读取单个实参
-    Cur = Cur->Next = readMacroArgOne(&Tok, Tok);
+    Cur = Cur->Next = readMacroArgOne(&Tok, Tok, false);
     // 设置为对应的形参名称
     Cur->Name = PP->Name;
   }
 
+  // 剩余未匹配的实参，如果为可变参数
+  if (IsVariadic) {
+    MacroArg *Arg;
+    // 剩余实参为空
+    if (equal(Tok, ")")) {
+      Arg = calloc(1, sizeof(MacroArg));
+      Arg->Tok = newEOF(Tok);
+    } else {
+      // 处理对应可变参数的实参
+      // 跳过","
+      if (PP != Params)
+        Tok = skip(Tok, ",");
+      Arg = readMacroArgOne(&Tok, Tok, true);
+    }
+    Arg->Name = "__VA_ARGS__";
+    Cur = Cur->Next = Arg;
+  }
   // 如果形参没有遍历完，就报错
-  if (PP)
+  else if (PP) {
     errorTok(Start, "too many arguments");
+  }
+
   skip(Tok, ")");
   // 这里返回右括号
   *Rest = Tok;
@@ -677,7 +717,7 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   // 处理宏函数，并连接到Tok之后
   // 读取宏函数实参，这里是宏函数的隐藏集
   Token *MacroToken = Tok;
-  MacroArg *Args = readMacroArgs(&Tok, Tok, M->Params);
+  MacroArg *Args = readMacroArgs(&Tok, Tok, M->Params, M->IsVariadic);
   // 这里返回的是右括号，这里是宏参数的隐藏集
   Token *RParen = Tok;
   // 宏函数间可能具有不同的隐藏集，新的终结符就不知道应该使用哪个隐藏集。
