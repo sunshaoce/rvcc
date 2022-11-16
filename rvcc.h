@@ -86,6 +86,7 @@ struct Token {
   bool AtBOL;       // 终结符在行首（begin of line）时为true
   bool HasSpace;    // 终结符前是否有空格
   Hideset *Hideset; // 用于宏展开时的隐藏集
+  Token *Origin;    // 宏展开前的原始终结符
 };
 
 // 去除了static用以在多个文件间访问
