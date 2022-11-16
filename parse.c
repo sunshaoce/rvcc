@@ -2888,6 +2888,10 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   pushScope("__func__")->Var =
       newStringLiteral(Fn->Name, arrayOf(TyChar, strlen(Fn->Name) + 1));
 
+  // [GNU] __FUNCTION__也被定义为包含当前函数名称的局部变量
+  pushScope("__FUNCTION__")->Var =
+      newStringLiteral(Fn->Name, arrayOf(TyChar, strlen(Fn->Name) + 1));
+
   // 函数体存储语句的AST，Locals存储变量
   Fn->Body = compoundStmt(&Tok, Tok);
   Fn->Locals = Locals;

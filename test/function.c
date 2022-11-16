@@ -129,6 +129,11 @@ char *func_fn(void) {
   return __func__;
 }
 
+// [192] 支持 __FUNCTION__
+char *function_fn(void) {
+  return __FUNCTION__;
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -229,6 +234,9 @@ int main() {
   ASSERT(5, sizeof(__func__));
   ASSERT(0, strcmp("main", __func__));
   ASSERT(0, strcmp("func_fn", func_fn()));
+  printf("[192] 支持 __FUNCTION__\n");
+  ASSERT(0, strcmp("main", __FUNCTION__));
+  ASSERT(0, strcmp("function_fn", function_fn()));
 
   printf("OK\n");
   return 0;
