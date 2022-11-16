@@ -15,15 +15,19 @@ struct MacroArg {
   Token *Tok;     // 对应的终结符链表
 };
 
+// 宏处理函数
+typedef Token *macroHandlerFn(Token *);
+
 // 定义的宏变量
 typedef struct Macro Macro;
 struct Macro {
-  Macro *Next;        // 下一个
-  char *Name;         // 名称
-  bool IsObjlike;     // 宏变量为真，或者宏函数为假
-  MacroParam *Params; // 宏函数参数
-  Token *Body;        // 对应的终结符
-  bool Deleted;       // 是否被删除了
+  Macro *Next;             // 下一个
+  char *Name;              // 名称
+  bool IsObjlike;          // 宏变量为真，或者宏函数为假
+  MacroParam *Params;      // 宏函数参数
+  Token *Body;             // 对应的终结符
+  bool Deleted;            // 是否被删除了
+  macroHandlerFn *Handler; // 宏处理函数
 };
 
 // 宏变量栈
@@ -641,12 +645,24 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   if (!M)
     return false;
 
+  // 如果宏设置了相应的处理函数，例如__LINE__
+  if (M->Handler) {
+    // 就使用相应的处理函数解析当前的宏
+    *Rest = M->Handler(Tok);
+    // 紧接着处理后续终结符
+    (*Rest)->Next = Tok->Next;
+    return true;
+  }
+
   // 为宏变量时
   if (M->IsObjlike) {
     // 展开过一次的宏变量，就加入到隐藏集当中
     Hideset *Hs = hidesetUnion(Tok->Hideset, newHideset(M->Name));
     // 处理此宏变量之后，传递隐藏集给之后的终结符
     Token *Body = addHideset(M->Body, Hs);
+    // 记录展开前的宏
+    for (Token *T = Body; T->Kind != TK_EOF; T = T->Next)
+      T->Origin = Tok;
     *Rest = append(Body, Tok->Next);
     // 传递 是否为行首 和 前面是否有空格 的信息
     (*Rest)->AtBOL = Tok->AtBOL;
@@ -674,6 +690,9 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   Token *Body = subst(M->Body, Args);
   // 为宏函数内部设置隐藏集
   Body = addHideset(Body, Hs);
+  // 记录展开前的宏函数
+  for (Token *T = Body; T->Kind != TK_EOF; T = T->Next)
+    T->Origin = MacroToken;
   // 将设置好的宏函数内部连接到终结符链表中
   *Rest = append(Body, Tok->Next);
   // 传递 是否为行首 和 前面是否有空格 的信息
@@ -925,6 +944,33 @@ static void defineMacro(char *Name, char *Buf) {
   addMacro(Name, true, Tok);
 }
 
+// 增加内建的宏和相应的宏处理函数
+static Macro *addBuiltin(char *Name, macroHandlerFn *Fn) {
+  // 增加宏
+  Macro *M = addMacro(Name, true, NULL);
+  // 设置相应的处理函数
+  M->Handler = Fn;
+  return M;
+}
+
+// 文件标号函数
+static Token *fileMacro(Token *Tmpl) {
+  // 如果存在原始的宏，则遍历后使用原始的宏
+  while (Tmpl->Origin)
+    Tmpl = Tmpl->Origin;
+  // 根据原始宏的文件名构建字符串终结符
+  return newStrToken(Tmpl->File->Name, Tmpl);
+}
+
+// 行标号函数
+static Token *lineMacro(Token *Tmpl) {
+  // 如果存在原始的宏，则遍历后使用原始的宏
+  while (Tmpl->Origin)
+    Tmpl = Tmpl->Origin;
+  // 根据原始的宏的行号构建数值终结符
+  return newNumToken(Tmpl->LineNo, Tmpl);
+}
+
 // 初始化预定义的宏
 static void initMacros(void) {
   defineMacro("_LP64", "1");
@@ -973,6 +1019,9 @@ static void initMacros(void) {
   defineMacro("__riscv_div", "1");
   defineMacro("__riscv_float_abi_double", "1");
   defineMacro("__riscv_flen", "64");
+
+  addBuiltin("__FILE__", fileMacro);
+  addBuiltin("__LINE__", lineMacro);
 }
 
 // 预处理器入口函数
