@@ -1064,6 +1064,48 @@ static void initMacros(void) {
   addBuiltin("__LINE__", lineMacro);
 }
 
+// 拼接相邻的字符串
+static void joinAdjacentStringLiterals(Token *Tok1) {
+  // 遍历直到终止符
+  while (Tok1->Kind != TK_EOF) {
+    // 判断是否为两个字符串终结符在一起
+    if (Tok1->Kind != TK_STR || Tok1->Next->Kind != TK_STR) {
+      Tok1 = Tok1->Next;
+      continue;
+    }
+
+    // 指向相邻字符串的下一个
+    Token *Tok2 = Tok1->Next;
+    while (Tok2->Kind == TK_STR)
+      Tok2 = Tok2->Next;
+
+    // 遍历记录所有拼接字符串的长度
+    int Len = Tok1->Ty->ArrayLen;
+    for (Token *T = Tok1->Next; T != Tok2; T = T->Next)
+      // 去除'\0'后的长度
+      Len = Len + T->Ty->ArrayLen - 1;
+
+    // 开辟Len个字符长度的空间
+    char *Buf = calloc(Tok1->Ty->Base->Size, Len);
+
+    // 遍历写入每个字符串的内容
+    int I = 0;
+    for (Token *T = Tok1; T != Tok2; T = T->Next) {
+      memcpy(Buf + I, T->Str, T->Ty->Size);
+      // 去除'\0'后的长度
+      I = I + T->Ty->Size - T->Ty->Base->Size;
+    }
+
+    // 为新建的字符串构建终结符
+    *Tok1 = *copyToken(Tok1);
+    Tok1->Ty = arrayOf(Tok1->Ty->Base, Len);
+    Tok1->Str = Buf;
+    // 指向下一个终结符Tok2
+    Tok1->Next = Tok2;
+    Tok1 = Tok2;
+  }
+}
+
 // 预处理器入口函数
 Token *preprocess(Token *Tok) {
   // 初始化预定义的宏
@@ -1075,5 +1117,7 @@ Token *preprocess(Token *Tok) {
     errorTok(CondIncls->Tok, "unterminated conditional directive");
   // 将所有关键字的终结符，都标记为KEYWORD
   convertKeywords(Tok);
+  // 拼接相邻的字符串字面量
+  joinAdjacentStringLiterals(Tok);
   return Tok;
 }

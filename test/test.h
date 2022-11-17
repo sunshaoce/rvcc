@@ -9,6 +9,8 @@ int printf(char *fmt, ...);
 // [107] 为全局变量处理联合体初始化
 int strcmp(char *p, char *q);
 int memcmp(char *p, char *q, long n);
+// [193] 连接相邻的字符串
+int strncmp(char *p, char *q, long n);
 
 // [127] 允许调用可变参数函数
 int sprintf(char *buf, char *fmt, ...);
