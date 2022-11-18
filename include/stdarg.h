@@ -10,6 +10,14 @@ typedef void *va_list;
 
 #define va_end(ap)
 
+// [196] 支持 va_arg()
+#define va_arg(ap, type)                                                       \
+  ({                                                                           \
+    type val = *(type *)ap;                                                    \
+    ap += 8;                                                                   \
+    val;                                                                       \
+  })
+
 #define __GNUC_VA_LIST 1
 typedef va_list __gnuc_va_list;
 
