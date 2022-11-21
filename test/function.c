@@ -82,6 +82,17 @@ short short_fn();
 // [127] 允许调用可变参数函数
 int add_all(int n, ...);
 
+// [128] 增加__va_area__以支持可变参数函数
+typedef void *va_list;
+
+int sprintf(char *buf, char *fmt, ...);
+int vsprintf(char *buf, char *fmt, va_list ap);
+
+char *fmt(char *buf, char *fmt, ...) {
+  va_list ap = __va_area__;
+  vsprintf(buf, fmt, ap);
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -139,7 +150,12 @@ int main() {
   ASSERT(6, add_all(3,1,2,3));
   ASSERT(5, add_all(4,1,2,3,-1));
 
+  // [128] 增加__va_area__以支持可变参数函数
+  { char buf[100]; fmt(buf, "%d %d %s", 1, 2, "foo"); printf("%s\n", buf); }
+
   ASSERT(0, ({ char buf[100]; sprintf(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));
+
+  ASSERT(0, ({ char buf[100]; fmt(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));
 
   printf("OK\n");
   return 0;

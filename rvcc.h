@@ -104,6 +104,7 @@ struct Obj {
   Obj *Params;   // 形参
   Node *Body;    // 函数体
   Obj *Locals;   // 本地变量
+  Obj *VaArea;   // 可变参数区域
   int StackSize; // 栈大小
 };
 
