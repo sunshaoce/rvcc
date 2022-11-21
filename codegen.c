@@ -841,6 +841,72 @@ static void copyStructMem(void) {
   }
 }
 
+// 开辟Alloca空间
+static void builtinAlloca(void) {
+  // printLn("  add $15, %%rdi");
+  // printLn("  and $0xfffffff0, %%edi");
+  // rdi，edi->t1
+  // 对齐t1到16字节，t1
+  printLn("  addi t1, t1, 15");
+  printLn("  andi t1, t1, -16");
+
+  // Shift the temporary area by %rdi.
+  // 位移临时区域通过t0
+
+  // rcx->t2
+  // printLn("  mov %d(%%rbp), %%rcx", current_fn->alloca_bottom->offset);
+  // 加载老sp到t2中
+  printLn("  li t0, %d", CurrentFn->AllocaBottom->Offset);
+  printLn("  add t0, fp, t0");
+  printLn("  ld t2, 0(t0)");
+  // 老sp-新sp
+  // printLn("  sub %%rsp, %%rcx");
+  printLn("  sub t2, t2, sp");
+  // rax->a1
+  // 保存新sp到a1
+  // printLn("  mov %%rsp, %%rax");
+  printLn("  mv a0, sp");
+  // printLn("  sub %%rdi, %%rsp");
+  // 新sp分配出所需的内存空间
+  printLn("  sub sp, sp, t1");
+  // rdx->t3
+  // printLn("  mov %%rsp, %%rdx");
+  // 分配后的结果存入t3
+  printLn("  mv t3, sp");
+
+  int C = count();
+  printLn(".L.alloca1.%d:", C);
+  // printLn("  cmp $0, %%rcx");
+  // printLn("  je 2f");
+  // t1为0跳转到标签2
+  printLn("beqz t2, .L.alloca2.%d", C);
+  // r8b->t0
+  // printLn("  mov (%%rax), %%r8b");
+  // printLn("  mov %%r8b, (%%rdx)");
+  // 将老sp的内容复制到新sp
+  printLn("  ld t0, 0(a0)");
+  printLn("  sd t0, 0(t3)");
+  // printLn("  inc %%rdx");
+  printLn("  addi t3, t3, 1");
+  // printLn("  inc %%rax");
+  printLn("  addi a0, a0, 1");
+  // printLn("  dec %%rcx");
+  printLn("  addi t2, t2, -1");
+  // printLn("  jmp 1b");
+  printLn("  j .L.alloca1.%d", C);
+  printLn(".L.alloca2.%d:", C);
+
+  // Move alloca_bottom pointer.
+  // printLn("  mov %d(%%rbp), %%rax", current_fn->alloca_bottom->offset);
+  printLn("  li t0, %d", CurrentFn->AllocaBottom->Offset);
+  printLn("  add t0, fp, t0");
+  printLn("  ld a0, 0(t0)");
+  // printLn("  sub %%rdi, %%rax");
+  printLn("  sub a0, a0, t1");
+  // printLn("  mov %%rax, %d(%%rbp)", current_fn->alloca_bottom->offset);
+  printLn("sd a0, 0(t0)");
+}
+
 // 生成表达式
 static void genExpr(Node *Nd) {
   // .loc 文件编号 行号
@@ -1087,6 +1153,14 @@ static void genExpr(Node *Nd) {
     return;
   // 函数调用
   case ND_FUNCALL: {
+    if (Nd->LHS->Kind == ND_VAR && !strcmp(Nd->LHS->Var->Name, "alloca")) {
+      genExpr(Nd->Args);
+      // printLn("  mov %%rax, %%rdi");
+      printLn("  mv t1, a0");
+      builtinAlloca();
+      return;
+    }
+
     // 计算所有参数的值，正向压栈
     // 此处获取到栈传递参数的数量
     int StackArgs = pushArgs(Nd);
@@ -1927,6 +2001,11 @@ void emitText(Obj *Prog) {
     printLn("  # sp腾出StackSize大小的栈空间");
     printLn("  li t0, -%d", Fn->StackSize);
     printLn("  add sp, sp, t0");
+    // Alloca区域
+    // printLn("  mov %%rsp, %d(%%rbp)", fn->alloca_bottom->offset);
+    printLn("  li t0, %d", Fn->AllocaBottom->Offset);
+    printLn("  add t0, t0, fp");
+    printLn("  sd sp, 0(t0)");
 
     // 正常传递的形参
     // 记录整型寄存器，浮点寄存器使用的数量

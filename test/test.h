@@ -23,3 +23,6 @@ int vsprintf(char *buf, char *fmt, void *ap);
 
 // [221] 支持__DATE__和__TIME__宏
 long strlen(char *s);
+
+// [271] 支持alloca函数
+void *memcpy(void *dest, void *src, long n);

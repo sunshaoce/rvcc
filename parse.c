@@ -3414,6 +3414,8 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   // 判断是否为可变参数
   if (Ty->IsVariadic)
     Fn->VaArea = newLVar("__va_area__", arrayOf(TyChar, 0));
+  // 分配Alloca区域
+  Fn->AllocaBottom = newLVar("__alloca_size__", pointerTo(TyChar));
 
   Tok = skip(Tok, "{");
 
@@ -3504,9 +3506,17 @@ static void scanGlobals(void) {
   Globals = Head.Next;
 }
 
+static void declareBuiltinFunctions(void) {
+  Type *ty = funcType(pointerTo(TyVoid));
+  ty->Params = copyType(TyInt);
+  Obj *Builtin = newGVar("alloca", ty);
+  Builtin->IsDefinition = false;
+}
+
 // 语法解析入口函数
 // program = (typedef | functionDefinition* | global-variable)*
 Obj *parse(Token *Tok) {
+  declareBuiltinFunctions();
   Globals = NULL;
 
   while (Tok->Kind != TK_EOF) {
