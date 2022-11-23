@@ -1101,6 +1101,24 @@ static void emitData(Obj *Prog) {
   }
 }
 
+// 将浮点寄存器的值存入栈中
+static void storeFloat(int Reg, int Offset, int Sz) {
+  printLn("  # 将fa%d寄存器的值存入%d(fp)的栈地址", Reg, Offset);
+  printLn("  li t0, %d", Offset);
+  printLn("  add t0, fp, t0");
+
+  switch (Sz) {
+  case 4:
+    printLn("  fsw fa%d, 0(t0)", Reg);
+    return;
+  case 8:
+    printLn("  fsd fa%d, 0(t0)", Reg);
+    return;
+  default:
+    unreachable();
+  }
+}
+
 // 将整形寄存器的值存入栈中
 static void storeGeneral(int Reg, int Offset, int Size) {
   printLn("  # 将a%d寄存器的值存入%d(fp)的栈地址", Reg, Offset);
@@ -1173,19 +1191,34 @@ void emitText(Obj *Prog) {
     printLn("  li t0, -%d", Fn->StackSize);
     printLn("  add sp, sp, t0");
 
-    int I = 0;
     // 正常传递的形参
-    for (Obj *Var = Fn->Params; Var; Var = Var->Next)
-      storeGeneral(I++, Var->Offset, Var->Ty->Size);
+    // 记录整型寄存器，浮点寄存器使用的数量
+    int GP = 0, FP = 0;
+    for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
+      if (isFloNum(Var->Ty)) {
+        // 正常传递的浮点形参
+        if (FP < 8) {
+          printLn("  # 将浮点形参%s的寄存器fa%d的值压栈", Var->Name, FP);
+          storeFloat(FP++, Var->Offset, Var->Ty->Size);
+        } else {
+          printLn("  # 将浮点形参%s的寄存器a%d的值压栈", Var->Name, GP);
+          storeGeneral(GP++, Var->Offset, Var->Ty->Size);
+        }
+      } else {
+        // 正常传递的整型形参
+        printLn("  # 将整型形参%s的寄存器a%d的值压栈", Var->Name, GP);
+        storeGeneral(GP++, Var->Offset, Var->Ty->Size);
+      }
+    }
 
     // 可变参数
     if (Fn->VaArea) {
       // 可变参数存入__va_area__，注意最多为7个
       int Offset = Fn->VaArea->Offset;
-      while (I < 8) {
+      while (GP < 8) {
         printLn("  # 可变参数，相对%s的偏移量为%d", Fn->VaArea->Name,
                 Offset - Fn->VaArea->Offset);
-        storeGeneral(I++, Offset, 8);
+        storeGeneral(GP++, Offset, 8);
         Offset += 8;
       }
     }
