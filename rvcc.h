@@ -238,8 +238,9 @@ struct Node {
   Member *Mem;
 
   // 函数调用
-  Type *FuncType; // 函数类型
-  Node *Args;     // 函数参数
+  Type *FuncType;   // 函数类型
+  Node *Args;       // 函数参数
+  bool PassByStack; // 通过栈传递
 
   // goto和标签语句
   char *Label;

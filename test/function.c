@@ -134,6 +134,20 @@ char *function_fn(void) {
   return __FUNCTION__;
 }
 
+// [198] 支持栈传递实参
+int add10_int(int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8,
+              int x9, int x10);
+float add10_float(float x1, float x2, float x3, float x4, float x5, float x6,
+                  float x7, float x8, float x9, float x10);
+double add10_double(double x1, double x2, double x3, double x4, double x5,
+                    double x6, double x7, double x8, double x9, double x10);
+double add10_double_int(double x1, double x2, int x3, double x4, int x5,
+                        double x6, int x7, double x8, double x9, double x10);
+double add10_int_double(int a0, int a1, int a2, int a3, int a4, int a5, int a6,
+                        int a7, int s1, int s2, double fa0, double fa1,
+                        double fa2, double fa3, double fa4, double fa5,
+                        double fa6, double fa7, double fs3, double fs4);
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -237,6 +251,19 @@ int main() {
   printf("[192] 支持 __FUNCTION__\n");
   ASSERT(0, strcmp("main", __FUNCTION__));
   ASSERT(0, strcmp("function_fn", function_fn()));
+
+  // [198] 支持栈传递实参
+  ASSERT(55, add10_int(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+  ASSERT(55, add10_float(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+  ASSERT(55, add10_double(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+  ASSERT(55, add10_double_int(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+  ASSERT(18, add10_int_double(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+
+  ASSERT(0, ({
+           char buf[200];
+           sprintf(buf, "%d %.1f %.1f %.1f %d %d", 1, 1.0, 1.0, 1.0, 1, 1);
+           strcmp("1 1.0 1.0 1.0 1 1", buf);
+         }));
 
   printf("OK\n");
   return 0;
