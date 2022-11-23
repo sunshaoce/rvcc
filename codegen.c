@@ -1,5 +1,8 @@
 #include "rvcc.h"
 
+#define GP_MAX 8
+#define FP_MAX 8
+
 // 输出文件
 static FILE *OutputFile;
 // 记录栈深度
@@ -420,13 +423,19 @@ static void cast(Type *From, Type *To) {
 }
 
 // 将函数实参计算后压入栈中
-static void pushArgs(Node *Args) {
+static void pushArgs2(Node *Args, bool FirstPass) {
   // 参数为空直接返回
   if (!Args)
     return;
 
   // 递归到最后一个实参进行
-  pushArgs(Args->Next);
+  pushArgs2(Args->Next, FirstPass);
+
+  // 第一遍对栈传递的变量进行压栈
+  // 第二遍对寄存器传递的变量进行压栈
+  if ((FirstPass && !Args->PassByStack) ||
+      (!FirstPass && Args->PassByStack))
+    return;
 
   printLn("\n  # ↓对%s表达式进行计算，然后压栈↓",
           isFloNum(Args->Ty) ? "浮点" : "整型");
@@ -439,6 +448,55 @@ static void pushArgs(Node *Args) {
     push();
   }
   printLn("  # ↑结束压栈↑");
+}
+
+// 处理参数后进行压栈
+static int pushArgs(Node *Args) {
+  int Stack = 0, GP = 0, FP = 0;
+
+  // 遍历所有参数，优先使用寄存器传递，然后是栈传递
+  for (Node *Arg = Args; Arg; Arg = Arg->Next) {
+    if (isFloNum(Arg->Ty)) {
+      // 浮点优先使用FP，而后是GP，最后是栈传递
+      if (FP < FP_MAX) {
+        printLn("  # 浮点%f值通过fa%d传递", Arg->FVal, FP);
+        FP++;
+      } else if (GP < GP_MAX) {
+        printLn("  # 浮点%f值通过a%d传递", Arg->FVal, GP);
+        GP++;
+      } else {
+        printLn("  # 浮点%f值通过栈传递", Arg->FVal);
+        Arg->PassByStack = true;
+        Stack++;
+      }
+    } else {
+      // 整型优先使用GP，最后是栈传递
+      if (GP < GP_MAX) {
+        printLn("  # 整型%ld值通过a%d传递", Arg->Val, GP);
+        GP++;
+      } else {
+        printLn("  # 整型%ld值通过栈传递", Arg->Val);
+        Arg->PassByStack = true;
+        Stack++;
+      }
+    }
+  }
+
+  // 对齐栈边界
+  if ((Depth + Stack) % 2 == 1) {
+    printLn("  # 对齐栈边界到16字节");
+    printLn("  addi sp, sp, -8");
+    Depth++;
+    Stack++;
+  }
+
+  // 进行压栈
+  // 第一遍对栈传递的变量进行压栈
+  pushArgs2(Args, true);
+  // 第二遍对寄存器传递的变量进行压栈
+  pushArgs2(Args, false);
+  // 返回栈传递参数的个数
+  return Stack;
 }
 
 // 生成表达式
@@ -627,7 +685,8 @@ static void genExpr(Node *Nd) {
   // 函数调用
   case ND_FUNCALL: {
     // 计算所有参数的值，正向压栈
-    pushArgs(Nd->Args);
+    // 此处获取到栈传递参数的数量
+    int StackArgs = pushArgs(Nd->Args);
     genExpr(Nd->LHS);
     // 将a0的值存入t5
     printLn("  mv t5, a0");
@@ -640,7 +699,7 @@ static void genExpr(Node *Nd) {
       // 如果是可变参数函数
       // 匹配到空参数（最后一个）的时候，将剩余的整型寄存器弹栈
       if (Nd->FuncType->IsVariadic && CurArg == NULL) {
-        if (GP < 8) {
+        if (GP < GP_MAX) {
           printLn("  # a%d传递可变实参", GP);
           pop(GP++);
         }
@@ -649,15 +708,15 @@ static void genExpr(Node *Nd) {
 
       CurArg = CurArg->Next;
       if (isFloNum(Arg->Ty)) {
-        if (FP < 8) {
+        if (FP < FP_MAX) {
           printLn("  # fa%d传递浮点参数", FP);
           popF(FP++);
-        } else if (GP < 8) {
+        } else if (GP < GP_MAX) {
           printLn("  # a%d传递浮点参数", GP);
           pop(GP++);
         }
       } else {
-        if (GP < 8) {
+        if (GP < GP_MAX) {
           printLn("  # a%d传递整型参数", GP);
           pop(GP++);
         }
@@ -665,17 +724,15 @@ static void genExpr(Node *Nd) {
     }
 
     // 调用函数
+    printLn("  # 调用函数");
+    printLn("  jalr t5");
 
-    if (Depth % 2 == 0) {
-      // 偶数深度，sp已经对齐16字节
-      printLn("  # 调用函数");
-      printLn("  jalr t5");
-    } else {
-      // 对齐sp到16字节的边界
-      printLn("  # 对齐sp到16字节的边界，并调用函数");
-      printLn("  addi sp, sp, -8");
-      printLn("  jalr t5");
-      printLn("  addi sp, sp, 8");
+    // 回收为栈传递的变量开辟的栈空间
+    if (StackArgs) {
+      // 栈的深度减去栈传递参数的个数
+      Depth -= StackArgs;
+      printLn("  # 回收栈传递参数的%d个字节", StackArgs * 8);
+      printLn("  addi sp, sp, %d", StackArgs * 8);
     }
 
     // 清除寄存器中高位无关的数据
@@ -1247,7 +1304,7 @@ void emitText(Obj *Prog) {
     if (Fn->VaArea) {
       // 可变参数存入__va_area__，注意最多为7个
       int Offset = Fn->VaArea->Offset;
-      while (GP < 8) {
+      while (GP < GP_MAX) {
         printLn("  # 可变参数，相对%s的偏移量为%d", Fn->VaArea->Name,
                 Offset - Fn->VaArea->Offset);
         storeGeneral(GP++, Offset, 8);
