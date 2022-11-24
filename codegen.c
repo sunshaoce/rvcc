@@ -1109,15 +1109,63 @@ static void assignLVarOffsets(Obj *Prog) {
     if (!Fn->IsFunction)
       continue;
 
+    // 反向偏移量
+    int ReOffset = 16;
+
+    // 被调用函数将自己的ra、fp也压入栈了，
+    // 所以fp+16才是上一级函数的sp顶
+    // /             栈保存的N个变量            / N*8
+    // /---------------本级函数----------------/ sp
+    // /                 ra                  / sp-8
+    // /                fp（上一级）           / fp = sp-16
+
+    // 寄存器传递
+    int GP = 0, FP = 0;
+    // 寄存器传递的参数
+    for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
+      if (isFloNum(Var->Ty)) {
+        if (FP < FP_MAX) {
+          printLn(" #  FP%d传递浮点变量%s", FP, Var->Name);
+          FP++;
+          continue;
+        } else if (GP < GP_MAX) {
+          printLn(" #  GP%d传递浮点变量%s", GP, Var->Name);
+          GP++;
+          continue;
+        }
+      } else {
+        if (GP < GP_MAX) {
+          printLn(" #  GP%d传递整型变量%s", GP, Var->Name);
+          GP++;
+          continue;
+        }
+      }
+
+      // 栈传递
+
+      // 对齐变量
+      ReOffset = alignTo(ReOffset, 8);
+      // 为栈传递变量赋一个偏移量，或者说是反向栈地址
+      Var->Offset = ReOffset;
+      // 栈传递变量计算反向偏移量
+      ReOffset += Var->Ty->Size;
+      printLn(" #  栈传递变量%s偏移量%d", Var->Name, Var->Offset);
+    }
+
     int Offset = 0;
     // 读取所有变量
     for (Obj *Var = Fn->Locals; Var; Var = Var->Next) {
+      // 栈传递的变量的直接跳过
+      if (Var->Offset)
+        continue;
+
       // 每个变量分配空间
       Offset += Var->Ty->Size;
       // 对齐变量
       Offset = alignTo(Offset, Var->Align);
       // 为每个变量赋一个偏移量，或者说是栈中地址
       Var->Offset = -Offset;
+      printLn(" #  寄存器传递变量%s偏移量%d", Var->Name, Var->Offset);
     }
     // 将栈对齐到16字节
     Fn->StackSize = alignTo(Offset, 16);
@@ -1284,9 +1332,14 @@ void emitText(Obj *Prog) {
     // 记录整型寄存器，浮点寄存器使用的数量
     int GP = 0, FP = 0;
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
+      // 不处理栈传递的形参
+      if (Var->Offset > 0)
+        continue;
+
+      // 正常传递的形参
       if (isFloNum(Var->Ty)) {
         // 正常传递的浮点形参
-        if (FP < 8) {
+        if (FP < FP_MAX) {
           printLn("  # 将浮点形参%s的寄存器fa%d的值压栈", Var->Name, FP);
           storeFloat(FP++, Var->Offset, Var->Ty->Size);
         } else {
