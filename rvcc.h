@@ -304,6 +304,8 @@ struct Type {
   // 结构体
   Member *Mems;
   bool IsFlexible; // 是否为灵活的
+  Type *FSReg1Ty;  // 浮点结构体的对应寄存器
+  Type *FSReg2Ty;  // 浮点结构体的对应寄存器
 
   // 函数类型
   Type *ReturnTy;  // 函数返回的类型
