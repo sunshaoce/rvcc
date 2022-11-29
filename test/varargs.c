@@ -92,6 +92,17 @@ int sum2_6(int a0, float fa0, int a1, int a2, int a3, int a4, float fa1, int a5,
   }
 }
 
+// [205] 支持va_copy()
+void fmt(char *buf, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+
+  va_list ap2;
+  va_copy(ap2, ap);
+  vsprintf(buf, fmt, ap2);
+  va_end(buf);
+}
+
 int main() {
   // [196] 支持 va_arg()
   ASSERT(6, sum1(1, 2, 3, 0));
@@ -115,6 +126,9 @@ int main() {
                      12, 13, 14, 15, 16, 17, 18, 19, 20, 0));
   ASSERT(302, sum2_6(11.0, 12, 13, 14.0, 15, 16.0, 17, 18.0, 19, 1, 1, 10, 11,
                      12, 13, 14, 15, 16, 17, 18, 19, 20, 0));
+
+  printf("[205] 支持va_copy()\n");
+  ASSERT(0, ({ char buf[100]; fmt(buf, "%d %d", 2, 3); strcmp(buf, "2 3"); }));
 
   printf("OK\n");
   return 0;
