@@ -143,7 +143,7 @@ static void genExpr(Node *Nd) {
   // 加载数字到a0
   case ND_NUM:
     printLn("  # 将%d加载到a0中", Nd->Val);
-    printLn("  li a0, %d", Nd->Val);
+    printLn("  li a0, %ld", Nd->Val);
     return;
   // 对寄存器取反
   case ND_NEG:

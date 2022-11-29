@@ -57,6 +57,9 @@ int main() {
   ASSERT(7, ({ int x; int y; char z; char *a=&y; char *b=&z; b-a; }));
   ASSERT(1, ({ int x; char y; int z; char *a=&y; char *b=&z; b-a; }));
 
+  // [57] 支持long类型
+  ASSERT(8, ({ long x; sizeof(x); }));
+
   printf("OK\n");
   return 0;
 }
