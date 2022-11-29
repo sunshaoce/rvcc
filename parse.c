@@ -2378,8 +2378,14 @@ static Node *unary(Token **Rest, Token *Tok) {
     return newUnary(ND_ADDR, cast(Rest, Tok->Next), Tok);
 
   // "*" cast
-  if (equal(Tok, "*"))
-    return newUnary(ND_DEREF, cast(Rest, Tok->Next), Tok);
+  if (equal(Tok, "*")) {
+    Node *Nd = cast(Rest, Tok->Next);
+    addType(Nd);
+    // 如果func是函数，那么*func等价于func
+    if (Nd->Ty->Kind == TY_FUNC)
+      return Nd;
+    return newUnary(ND_DEREF, Nd, Tok);
+  }
 
   // "!" cast
   if (equal(Tok, "!"))
