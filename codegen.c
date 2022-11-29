@@ -594,7 +594,25 @@ static int pushArgs(Node *Nd) {
     GP++;
 
   // 遍历所有参数，优先使用寄存器传递，然后是栈传递
+  Type *CurArg = Nd->FuncType->Params;
   for (Node *Arg = Nd->Args; Arg; Arg = Arg->Next) {
+    // 如果是可变参数的参数，只使用整型寄存器和栈传递
+    if (Nd->FuncType->IsVariadic && CurArg == NULL) {
+      int64_t Val = Arg->Val ? Arg->Val : Arg->FVal;
+      if (GP < GP_MAX) {
+        printLn("  # 可变参数%ld值通过a%d传递", Val, GP);
+        GP++;
+      } else {
+        printLn("  # 可变参数%ld值通过栈传递", Val);
+        Arg->PassByStack = true;
+        Stack++;
+      }
+      continue;
+    }
+
+    // 遍历相应的实参，用于检查是不是到了可变参数
+    CurArg = CurArg->Next;
+
     // 读取实参的类型
     Type *Ty = Arg->Ty;
 
@@ -1586,6 +1604,12 @@ static void assignLVarOffsets(Obj *Prog) {
       printLn(" #  栈传递变量%s偏移量%d", Var->Name, Var->Offset);
     }
 
+    // 可变参数函数VaArea的偏移量
+    if (Fn->VaArea) {
+      ReOffset = alignTo(ReOffset, 8);
+      Fn->VaArea->Offset = ReOffset;
+    }
+
     int Offset = 0;
     // 读取所有变量
     for (Obj *Var = Fn->Locals; Var; Var = Var->Next) {
@@ -1749,7 +1773,11 @@ void emitText(Obj *Prog) {
     CurrentFn = Fn;
 
     // 栈布局
-    //-------------------------------// sp
+    // ------------------------------//
+    //        上一级函数的栈传递参数
+    // ==============================// sp（本级函数）
+    //         VaArea(寄存器可用时)
+    // ------------------------------// sp = sp（本级函数）-VaArea
     //              ra
     //-------------------------------// ra = sp-8
     //              fp
@@ -1760,6 +1788,28 @@ void emitText(Obj *Prog) {
     //-------------------------------//
 
     // Prologue, 前言
+
+    // 为剩余的整型寄存器开辟空间，用于存储可变参数
+    int VaSize = 0;
+    if (Fn->VaArea) {
+      // 遍历正常参数所使用的浮点、整型寄存器
+      int GPs = 0, FPs = 0;
+
+      // 可变参数函数，非可变的参数使用寄存器
+      for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
+        if (isFloNum(Var->Ty) && FPs < FP_MAX)
+          // 可变参数函数中的浮点参数
+          FPs++;
+        else if (GPs < GP_MAX)
+          // 可变参数函数中的整型参数
+          GPs++;
+      }
+
+      VaSize = (8 - GPs) * 8;
+      printLn("  # VaArea的区域，大小为%d", VaSize);
+      printLn("  addi sp, sp, -%d", VaSize);
+    }
+
     // 将ra寄存器压栈,保存ra的值
     printLn("  # 将ra寄存器压栈,保存ra的值");
     printLn("  addi sp, sp, -16");
@@ -1862,8 +1912,11 @@ void emitText(Obj *Prog) {
 
     // 可变参数
     if (Fn->VaArea) {
+      // 可变参数位置位于本函数的最上方，即sp的位置，也就是fp+16
+
       // 可变参数存入__va_area__，注意最多为7个
       int Offset = Fn->VaArea->Offset;
+      printLn("  # 可变参数VaArea的偏移量为%d", Fn->VaArea->Offset);
       while (GP < GP_MAX) {
         printLn("  # 可变参数，相对%s的偏移量为%d", Fn->VaArea->Name,
                 Offset - Fn->VaArea->Offset);
@@ -1892,6 +1945,13 @@ void emitText(Obj *Prog) {
     printLn("  # 将ra寄存器弹栈,恢复ra的值");
     printLn("  ld ra, 8(sp)");
     printLn("  addi sp, sp, 16");
+
+    // 归还可变参数寄存器压栈的那一部分
+    if (Fn->VaArea) {
+      printLn("  # 归还VaArea的区域，大小为%d", VaSize);
+      printLn("  addi sp, sp, %d", VaSize);
+    }
+
     // 返回
     printLn("  # 返回a0值给系统调用");
     printLn("  ret");
