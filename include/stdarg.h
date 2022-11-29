@@ -18,6 +18,8 @@ typedef void *va_list;
     val;                                                                       \
   })
 
+#define va_copy(dest, src) (dest = src)
+
 #define __GNUC_VA_LIST 1
 typedef va_list __gnuc_va_list;
 
