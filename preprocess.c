@@ -319,6 +319,9 @@ static long evalConstExpr(Token **Rest, Token *Tok) {
     }
   }
 
+  // 转换预处理数值到正常数值
+  convertPPTokens(Expr);
+
   // 计算常量表达式的值
   Token *Rest2;
   long Val = constExpr(&Rest2, Expr);
@@ -1116,7 +1119,7 @@ Token *preprocess(Token *Tok) {
   if (CondIncls)
     errorTok(CondIncls->Tok, "unterminated conditional directive");
   // 将所有关键字的终结符，都标记为KEYWORD
-  convertKeywords(Tok);
+  convertPPTokens(Tok);
   // 拼接相邻的字符串字面量
   joinAdjacentStringLiterals(Tok);
   return Tok;
