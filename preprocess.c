@@ -982,7 +982,7 @@ static Token *preprocess2(Token *Tok) {
 }
 
 // 定义预定义的宏
-static void defineMacro(char *Name, char *Buf) {
+void defineMacro(char *Name, char *Buf) {
   Token *Tok = tokenize(newFile("<built-in>", 1, Buf));
   addMacro(Name, true, Tok);
 }
@@ -1015,7 +1015,7 @@ static Token *lineMacro(Token *Tmpl) {
 }
 
 // 初始化预定义的宏
-static void initMacros(void) {
+void initMacros(void) {
   defineMacro("_LP64", "1");
   defineMacro("__C99_MACRO_WITH_VA_ARGS", "1");
   defineMacro("__ELF__", "1");
@@ -1111,8 +1111,6 @@ static void joinAdjacentStringLiterals(Token *Tok1) {
 
 // 预处理器入口函数
 Token *preprocess(Token *Tok) {
-  // 初始化预定义的宏
-  initMacros();
   // 处理宏和指示
   Tok = preprocess2(Tok);
   // 此时#if应该都被清空了，否则报错

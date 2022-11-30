@@ -58,6 +58,17 @@ static void addDefaultIncludePaths(char *Argv0) {
   strArrayPush(&IncludePaths, "/usr/include");
 }
 
+// 定义宏
+static void define(char *Str) {
+  char *Eq = strchr(Str, '=');
+  if (Eq)
+    // 存在赋值，使用该值
+    defineMacro(strndup(Str, Eq - Str), Eq + 1);
+  else
+    // 不存在赋值，则设为1
+    defineMacro(Str, "1");
+}
+
 // 解析传入程序的参数
 static void parseArgs(int Argc, char **Argv) {
   // 确保需要一个参数的选项，存在一个参数
@@ -121,6 +132,18 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-I
     if (!strncmp(Argv[I], "-I", 2)) {
       strArrayPush(&IncludePaths, Argv[I] + 2);
+      continue;
+    }
+
+    // 解析-D
+    if (!strcmp(Argv[I], "-D")) {
+      define(Argv[++I]);
+      continue;
+    }
+
+    // 解析-D
+    if (!strncmp(Argv[I], "-D", 2)) {
+      define(Argv[I] + 2);
       continue;
     }
 
@@ -469,6 +492,8 @@ static void runLinker(StringArray *Inputs, char *Output) {
 int main(int Argc, char **Argv) {
   // 在程序退出时，执行cleanup函数
   atexit(cleanup);
+  // 初始化预定义的宏
+  initMacros();
   // 解析传入程序的参数
   parseArgs(Argc, Argv);
 
