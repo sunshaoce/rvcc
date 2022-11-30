@@ -59,6 +59,7 @@ typedef enum {
   TK_KEYWORD, // 关键字
   TK_STR,     // 字符串字面量
   TK_NUM,     // 数字
+  TK_PP_NUM,  // 预处理数值
   TK_EOF,     // 文件终止符，即文件的最后
 } TokenKind;
 
@@ -100,6 +101,8 @@ void warnTok(Token *Tok, char *Fmt, ...);
 bool equal(Token *Tok, char *Str);
 Token *skip(Token *Tok, char *Str);
 bool consume(Token **Rest, Token *Tok, char *Str);
+// 转换为预处理终结符
+void convertPPTokens(Token *tok);
 // 转换关键字
 void convertKeywords(Token *Tok);
 // 获取输入文件
