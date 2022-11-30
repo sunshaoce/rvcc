@@ -124,4 +124,9 @@ check -D
 echo foo | $rvcc -Dfoo=bar -E - | grep -q bar
 check -D
 
+# [209] 支持-U选项
+# -U
+echo foo | $rvcc -Dfoo=bar -Ufoo -E - | grep -q foo
+check -U
+
 echo OK
