@@ -147,6 +147,18 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-U
+    if (!strcmp(Argv[I], "-U")) {
+      undefMacro(Argv[++I]);
+      continue;
+    }
+
+    // 解析-U
+    if (!strncmp(Argv[I], "-U", 2)) {
+      undefMacro(Argv[I] + 2);
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
