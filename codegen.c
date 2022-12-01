@@ -920,11 +920,29 @@ static void genExpr(Node *Nd) {
     }
   // 变量
   case ND_VAR:
-  case ND_MEMBER:
     // 计算出变量的地址，然后存入a0
     genAddr(Nd);
     load(Nd->Ty);
     return;
+  // 成员变量
+  case ND_MEMBER: {
+    // 计算出成员变量的地址，然后存入a0
+    genAddr(Nd);
+    load(Nd->Ty);
+
+    Member *Mem = Nd->Mem;
+    if (Mem->IsBitfield) {
+      printLn("  # 清除位域的成员变量（%d位）未用到的位", Mem->BitWidth);
+      // 清除位域成员变量未用到的高位
+      printLn("  slli a0, a0, %d", 64 - Mem->BitWidth - Mem->BitOffset);
+      // 清除位域成员变量未用到的低位
+      if (Mem->Ty->IsUnsigned)
+        printLn("  srli a0, a0, %d", 64 - Mem->BitWidth);
+      else
+        printLn("  srai a0, a0, %d", 64 - Mem->BitWidth);
+    }
+    return;
+  }
   // 解引用
   case ND_DEREF:
     genExpr(Nd->LHS);
@@ -941,6 +959,41 @@ static void genExpr(Node *Nd) {
     push();
     // 右部是右值，为表达式的值
     genExpr(Nd->RHS);
+
+    // 如果是位域成员变量，需要先从内存中读取当前值，然后合并到新值中
+    if (Nd->LHS->Kind == ND_MEMBER && Nd->LHS->Mem->IsBitfield) {
+      printLn("\n  # 位域成员变量进行赋值↓");
+      printLn("  # 计算位域成员变量的新值：");
+      Member *Mem = Nd->LHS->Mem;
+      // 将需要赋的值a0存入t1
+      printLn("  mv t1, a0");
+      // 构造一个和位域成员长度相同，全为1的二进制数
+      printLn("  li t0, %ld", (1L << Mem->BitWidth) - 1);
+      // 取交之后，位域长度的低位，存储了我们需要的值，其他位都为0
+      printLn("  and t1, t1, t0");
+      // 然后将该值左移，相应的位偏移量中
+      // 此时我们所需要的位域数值已经处于正确的位置，且其他位置都为0
+      printLn("  slli t1, t1, %d", Mem->BitOffset);
+
+      printLn("  # 读取位域当前值：");
+      // 将位域值保存的地址加载进来
+      printLn("  ld a0, 0(sp)");
+      // 读取该地址的值
+      load(Mem->Ty);
+
+      printLn("  # 写入成员变量新值到位域当前值中：");
+      // 位域值对应的掩码，即t1需要写入的位置
+      // 掩码位都为1，其余位为0
+      long Mask = ((1L << Mem->BitWidth) - 1) << Mem->BitOffset;
+      // 对掩码取反，此时，其余位都为1，掩码位都为0
+      printLn("  li t0, %ld", ~Mask);
+      // 取交，保留除掩码位外所有的位
+      printLn("  and a0, a0, t0");
+      // 取或，将成员变量的新值写入到掩码位
+      printLn("  or a0, a0, t1");
+      printLn("  # 完成位域成员变量的赋值↑\n");
+    }
+
     store(Nd->Ty);
     return;
   // 语句表达式
