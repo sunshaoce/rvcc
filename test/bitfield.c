@@ -1,5 +1,12 @@
 #include "test.h"
 
+// [211] 支持全局结构体位域初始化器
+struct {
+  char a;
+  int b : 5;
+  int c : 10;
+} g45 = {1, 2, 3}, g46={};
+
 int main() {
   printf("[210] 支持位域\n");
   ASSERT(4, sizeof(struct {int x:1; }));
@@ -20,6 +27,15 @@ int main() {
   ASSERT(-1, ({ struct bit1 x={1,2,3,4,5}; x.c; }));
   ASSERT(-4, ({ struct bit1 x={1,2,3,4,5}; x.d; }));
   ASSERT(-3, ({ struct bit1 x={1,2,3,4,5}; x.e; }));
+
+  printf("[211] 支持全局结构体位域初始化器\n");
+  ASSERT(1, g45.a);
+  ASSERT(2, g45.b);
+  ASSERT(3, g45.c);
+
+  ASSERT(0, g46.a);
+  ASSERT(0, g46.b);
+  ASSERT(0, g46.c);
 
   printf("OK\n");
   return 0;
