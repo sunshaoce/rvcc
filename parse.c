@@ -1314,6 +1314,20 @@ static Node *LVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
   return newBinary(ND_COMMA, LHS, RHS, Tok);
 }
 
+// 对临时转换Buf类型读取Sz大小的数值
+static uint64_t readBuf(char *Buf, int Sz) {
+  if (Sz == 1)
+    return *Buf;
+  if (Sz == 2)
+    return *(uint16_t *)Buf;
+  if (Sz == 4)
+    return *(uint32_t *)Buf;
+  if (Sz == 8)
+    return *(uint64_t *)Buf;
+  unreachable();
+  return -1;
+}
+
 // 临时转换Buf类型对Val进行存储
 static void writeBuf(char *Buf, uint64_t Val, int Sz) {
   if (Sz == 1)
@@ -1342,9 +1356,33 @@ static Relocation *writeGVarData(Relocation *Cur, Initializer *Init, Type *Ty,
 
   // 处理结构体
   if (Ty->Kind == TY_STRUCT) {
-    for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next)
-      Cur = writeGVarData(Cur, Init->Children[Mem->Idx], Mem->Ty, Buf,
-                          Offset + Mem->Offset);
+    for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
+      if (Mem->IsBitfield) {
+        // 结构体位域成员
+        Node *Expr = Init->Children[Mem->Idx]->Expr;
+        if (!Expr)
+          break;
+
+        // 获取相对于缓冲区的偏移量
+        char *Loc = Buf + Offset + Mem->Offset;
+        // 读取已经写入的值
+        uint64_t OldVal = readBuf(Loc, Mem->Ty->Size);
+        // 计算需要写入的新值
+        uint64_t NewVal = eval(Expr);
+        // 获取位域长度的掩码
+        uint64_t Mask = (1L << Mem->BitWidth) - 1;
+        // 对新值取交位域长度的位，然后左移到相应的偏移位置
+        // 最后与旧值取或，得到合并之后的值
+        uint64_t Combined = OldVal | ((NewVal & Mask) << Mem->BitOffset);
+        // 写入合并之后的值
+        writeBuf(Loc, Combined, Mem->Ty->Size);
+      } else {
+        // 结构体常规成员
+        Cur = writeGVarData(Cur, Init->Children[Mem->Idx], Mem->Ty, Buf,
+                            Offset + Mem->Offset);
+      }
+    }
+
     return Cur;
   }
 
