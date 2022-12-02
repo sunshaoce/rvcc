@@ -963,6 +963,9 @@ static void genExpr(Node *Nd) {
     // 如果是位域成员变量，需要先从内存中读取当前值，然后合并到新值中
     if (Nd->LHS->Kind == ND_MEMBER && Nd->LHS->Mem->IsBitfield) {
       printLn("\n  # 位域成员变量进行赋值↓");
+      printLn("  # 备份需要赋的a0值");
+      printLn("  mv t2, a0");
+
       printLn("  # 计算位域成员变量的新值：");
       Member *Mem = Nd->LHS->Mem;
       // 将需要赋的值a0存入t1
@@ -991,7 +994,12 @@ static void genExpr(Node *Nd) {
       printLn("  and a0, a0, t0");
       // 取或，将成员变量的新值写入到掩码位
       printLn("  or a0, a0, t1");
+
+      store(Nd->Ty);
+      printLn("  # 恢复需要赋的a0值作为返回值");
+      printLn("  mv a0, t2");
       printLn("  # 完成位域成员变量的赋值↑\n");
+      return;
     }
 
     store(Nd->Ty);
