@@ -2588,7 +2588,10 @@ static Type *structDecl(Token **Rest, Token *Tok) {
 
   // 遍历成员
   for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
-    if (Mem->IsBitfield) {
+    if (Mem->IsBitfield && Mem->BitWidth == 0) {
+      // 零宽度的位域有特殊含义，仅作用于对齐
+      Bits = alignTo(Bits, Mem->Ty->Size * 8);
+    } else if (Mem->IsBitfield) {
       // 位域成员变量
       int Sz = Mem->Ty->Size;
       // Bits此时对应成员最低位，Bits + Mem->BitWidth - 1对应成员最高位
