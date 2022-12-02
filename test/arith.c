@@ -153,6 +153,16 @@ int main() {
   ASSERT(5, 0?:5);
   ASSERT(4, ({ int i = 3; ++i?:10; }));
 
+  printf("[280] 支持long double\n");
+  ASSERT(3, (long double)3);
+  ASSERT(5, (long double)3 + 2);
+  ASSERT(6, (long double)3 * 2);
+  ASSERT(5, (long double)3 + 2.0);
+  ASSERT(6, (long double)3 * 2.0);
+  ASSERT(4, (long double)64 / 16);
+  ASSERT(45, (long double)1 + 2 + (char)3 + 4 + 5 + (int)6 + (float)7 + 8 + 9);
+  ASSERT(2, (long double)8 / 4 + 2 * 4 - 8);
+
   printf("OK\n");
   return 0;
 }

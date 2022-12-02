@@ -59,6 +59,18 @@ int main() {
   ASSERT(3, (float)3L);
   ASSERT(3, (double)3L);
 
+  printf("[140] 支持float和double用于局部变量或类型转换\n");
+  ASSERT(1, (_Bool)0.1L);
+  ASSERT(3, (char)3.0L);
+  ASSERT(3, (int)3.99L);
+  ASSERT(3, (float)3.5L);
+  ASSERT(3, (long double)3);
+  ASSERT(3, (long double)3.0);
+  ASSERT(3, (long double)3L);
+  ASSERT(1000, (short)1000.3L);
+  ASSERT(2000000000000000, (long)2e15L);
+  ASSERT(5, (long double)(float)5.5L);
+
   printf("OK\n");
   return 0;
 }
