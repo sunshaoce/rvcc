@@ -37,6 +37,25 @@ int main() {
   ASSERT(0, g46.b);
   ASSERT(0, g46.c);
 
+  printf("[212] 支持op=风格的位域赋值\n");
+  typedef struct {
+    int a : 10;
+    int b : 10;
+    int c : 10;
+  } T3;
+
+  ASSERT(1, ({ T3 x={1,2,3}; x.a++; }));
+  ASSERT(2, ({ T3 x={1,2,3}; x.b++; }));
+  ASSERT(3, ({ T3 x={1,2,3}; x.c++; }));
+
+  ASSERT(2, ({ T3 x={1,2,3}; ++x.a; }));
+  ASSERT(3, ({ T3 x={1,2,3}; ++x.b; }));
+  ASSERT(4, ({ T3 x={1,2,3}; ++x.c; }));
+
+  ASSERT(3, ({ T3 x={1,2,3}; x.a+=2; }));
+  ASSERT(4, ({ T3 x={1,2,3}; x.b*=2; }));
+  ASSERT(1, ({ T3 x={1,2,3}; x.c/=3; }));
+
   printf("OK\n");
   return 0;
 }
