@@ -344,6 +344,63 @@ int union_type_1_2_test_2(UnTy1_2 x, int n) {switch (n) { case 0: return x.a; ca
 // 结构体包含浮点数组
 int struct_type_13_1_test_2(StTy13_1 x, int n) {return x.a[n];}
 
+// [202] 支持调用返回结构体的函数
+// 单个成员变量的结构体
+StTy1_1 struct_type_1_1_test_3();
+StTy1_2 struct_type_1_2_test_3();
+StTy1_3 struct_type_1_3_test_3();
+StTy1_4 struct_type_1_4_test_3();
+
+// 使用一个寄存器的结构体
+StTy2_1 struct_type_2_1_test_3();
+StTy2_2 struct_type_2_2_test_3();
+StTy2_3 struct_type_2_3_test_3();
+
+StTy3_1 struct_type_3_1_test_3();
+StTy3_2 struct_type_3_2_test_3();
+StTy3_3 struct_type_3_3_test_3();
+
+// 使用两个寄存器的结构体
+StTy4_1 struct_type_4_1_test_3();
+StTy4_2 struct_type_4_2_test_3();
+StTy4_3 struct_type_4_3_test_3();
+StTy4_4 struct_type_4_4_test_3();
+
+// 使用地址传递的结构体
+StTy5_1 struct_type_5_1_test_3();
+StTy5_2 struct_type_5_2_test_3();
+
+// 掺杂浮点的结构体（成员数>=3）
+StTy6_1 struct_type_6_1_test_3();
+
+// 掺杂浮点的结构体（成员数==1）
+StTy7_1 struct_type_7_1_test_3();
+StTy7_2 struct_type_7_2_test_3();
+
+// 掺杂浮点的结构体（成员数==2）
+StTy8_1 struct_type_8_1_test_3();
+StTy8_2 struct_type_8_2_test_3();
+
+// [202] 支持调用返回结构体的函数
+typedef struct {
+  unsigned char a[10];
+} Ty20;
+typedef struct {
+  unsigned char a[20];
+} Ty21;
+typedef struct {
+  long a;
+  long b;
+  float c;
+} Ty22;
+
+Ty4 struct_test24(void);
+Ty5 struct_test25(void);
+Ty6 struct_test26(void);
+Ty20 struct_test27(void);
+Ty21 struct_test28(void);
+Ty22 struct_test29(void);
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -799,6 +856,155 @@ int main() {
   ASSERT(10, ({ Ty5 x={10,20,30}; struct_test15(x, 0); }));
   ASSERT(20, ({ Ty5 x={10,20,30}; struct_test15(x, 1); }));
   ASSERT(30, ({ Ty5 x={10,20,30}; struct_test15(x, 2); }));
+
+  // [202] 支持调用返回结构体的函数
+  printf("[202] 单个成员变量的结构体：\n");
+  ASSERT(1, ({ struct_type_1_1_test_3().a; }));
+  ASSERT(10, ({ struct_type_1_2_test_3().a; }));
+  ASSERT(10, ({ struct_type_1_3_test_3().a; }));
+  ASSERT(10, ({ struct_type_1_4_test_3().a; }));
+
+  printf("[202] 使用一个寄存器的结构体：\n");
+  ASSERT(10, ({ struct_type_2_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_2_1_test_3().b; }));
+  ASSERT(30, ({ struct_type_2_1_test_3().c; }));
+  ASSERT(40, ({ struct_type_2_1_test_3().d; }));
+  ASSERT(50, ({ struct_type_2_1_test_3().e; }));
+  ASSERT(60, ({ struct_type_2_1_test_3().f; }));
+  ASSERT(70, ({ struct_type_2_1_test_3().g; }));
+  ASSERT(80, ({ struct_type_2_1_test_3().h; }));
+
+  ASSERT(10, ({ struct_type_2_2_test_3().a; }));
+  ASSERT(20, ({ struct_type_2_2_test_3().b; }));
+
+  ASSERT(10, ({ struct_type_2_3_test_3().a; }));
+  ASSERT(20, ({ struct_type_2_3_test_3().b; }));
+
+  ASSERT(10, ({ struct_type_3_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_3_1_test_3().b; }));
+  ASSERT(30, ({ struct_type_3_1_test_3().c; }));
+  ASSERT(40, ({ struct_type_3_1_test_3().d; }));
+  ASSERT(50, ({ struct_type_3_1_test_3().e; }));
+
+  ASSERT(10, ({ struct_type_3_2_test_3().a; }));
+  ASSERT(20, ({ struct_type_3_2_test_3().b; }));
+  ASSERT(30, ({ struct_type_3_2_test_3().c; }));
+  ASSERT(40, ({ struct_type_3_2_test_3().d; }));
+
+  ASSERT(10, ({ struct_type_3_3_test_3().a; }));
+  ASSERT(20, ({ struct_type_3_3_test_3().b; }));
+  ASSERT(30, ({ struct_type_3_3_test_3().c; }));
+  ASSERT(40, ({ struct_type_3_3_test_3().d; }));
+
+  printf("[202] 使用两个寄存器的结构体\n");
+  ASSERT(10, ({ struct_type_4_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_4_1_test_3().b; }));
+  ASSERT(30, ({ struct_type_4_1_test_3().c; }));
+  ASSERT(40, ({ struct_type_4_1_test_3().d; }));
+  ASSERT(50, ({ struct_type_4_1_test_3().e; }));
+  ASSERT(60, ({ struct_type_4_1_test_3().f; }));
+  ASSERT(70, ({ struct_type_4_1_test_3().g; }));
+
+  ASSERT(10, ({ struct_type_4_2_test_3().a; }));
+  ASSERT(20, ({ struct_type_4_2_test_3().b; }));
+  ASSERT(30, ({ struct_type_4_2_test_3().c; }));
+  ASSERT(40, ({ struct_type_4_2_test_3().d; }));
+  ASSERT(50, ({ struct_type_4_2_test_3().e; }));
+
+  ASSERT(10, ({ struct_type_4_3_test_3().a; }));
+  ASSERT(20, ({ struct_type_4_3_test_3().b; }));
+  ASSERT(30, ({ struct_type_4_3_test_3().c; }));
+  ASSERT(40, ({ struct_type_4_3_test_3().d; }));
+  ASSERT(50, ({ struct_type_4_3_test_3().e; }));
+  ASSERT(60, ({ struct_type_4_3_test_3().f; }));
+
+  ASSERT(10, ({ struct_type_4_4_test_3().a; }));
+  ASSERT(20, ({ struct_type_4_4_test_3().b; }));
+  ASSERT(30, ({ struct_type_4_4_test_3().c; }));
+  ASSERT(40, ({ struct_type_4_4_test_3().d; }));
+  ASSERT(50, ({ struct_type_4_4_test_3().e; }));
+  ASSERT(60, ({ struct_type_4_4_test_3().f; }));
+  ASSERT(70, ({ struct_type_4_4_test_3().g; }));
+
+  printf("[202] 使用地址传递的结构体\n");
+  ASSERT(10, ({ struct_type_5_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_5_1_test_3().b; }));
+  ASSERT(30, ({ struct_type_5_1_test_3().c; }));
+
+  ASSERT(10, ({ struct_type_5_2_test_3().a; }));
+  ASSERT(20, ({ struct_type_5_2_test_3().b; }));
+  ASSERT(30, ({ struct_type_5_2_test_3().c; }));
+  ASSERT(40, ({ struct_type_5_2_test_3().d; }));
+  ASSERT(50, ({ struct_type_5_2_test_3().e; }));
+  ASSERT(60, ({ struct_type_5_2_test_3().f; }));
+  ASSERT(70, ({ struct_type_5_2_test_3().g; }));
+  ASSERT(80, ({ struct_type_5_2_test_3().h; }));
+
+  printf("[202] 掺杂浮点的结构体（成员数>=3）\n");
+  ASSERT(10, ({ struct_type_6_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_6_1_test_3().b; }));
+  ASSERT(30, ({ struct_type_6_1_test_3().c; }));
+
+  printf("[202] 掺杂浮点的结构体（成员数==1）\n");
+  ASSERT(10, ({ struct_type_7_1_test_3().a; }));
+  ASSERT(10, ({ struct_type_7_2_test_3().a; }));
+
+  printf("[202] 掺杂浮点的结构体（成员数==2）\n");
+  ASSERT(10, ({ struct_type_8_1_test_3().a; }));
+  ASSERT(20, ({ struct_type_8_1_test_3().b; }));
+
+  ASSERT(10, ({ struct_type_8_2_test_3().a; }));
+  ASSERT(20, ({ struct_type_8_2_test_3().b; }));
+
+  // [202] 支持调用返回结构体的函数
+  ASSERT(10, struct_test24().a);
+  ASSERT(20, struct_test24().b);
+  ASSERT(30, struct_test24().c);
+  ASSERT(40, struct_test24().d);
+
+  ASSERT(10, struct_test25().a);
+  ASSERT(20, struct_test25().b);
+  ASSERT(30, struct_test25().c);
+
+  ASSERT(10, struct_test26().a[0]);
+  ASSERT(20, struct_test26().a[1]);
+  ASSERT(30, struct_test26().a[2]);
+
+  ASSERT(10, struct_test27().a[0]);
+  ASSERT(20, struct_test27().a[1]);
+  ASSERT(30, struct_test27().a[2]);
+  ASSERT(40, struct_test27().a[3]);
+  ASSERT(50, struct_test27().a[4]);
+  ASSERT(60, struct_test27().a[5]);
+  ASSERT(70, struct_test27().a[6]);
+  ASSERT(80, struct_test27().a[7]);
+  ASSERT(90, struct_test27().a[8]);
+  ASSERT(100, struct_test27().a[9]);
+
+  ASSERT(1, struct_test28().a[0]);
+  ASSERT(2, struct_test28().a[1]);
+  ASSERT(3, struct_test28().a[2]);
+  ASSERT(4, struct_test28().a[3]);
+  ASSERT(5, struct_test28().a[4]);
+  ASSERT(6, struct_test28().a[5]);
+  ASSERT(7, struct_test28().a[6]);
+  ASSERT(8, struct_test28().a[7]);
+  ASSERT(9, struct_test28().a[8]);
+  ASSERT(10, struct_test28().a[9]);
+  ASSERT(11, struct_test28().a[10]);
+  ASSERT(12, struct_test28().a[11]);
+  ASSERT(13, struct_test28().a[12]);
+  ASSERT(14, struct_test28().a[13]);
+  ASSERT(15, struct_test28().a[14]);
+  ASSERT(16, struct_test28().a[15]);
+  ASSERT(17, struct_test28().a[16]);
+  ASSERT(18, struct_test28().a[17]);
+  ASSERT(19, struct_test28().a[18]);
+  ASSERT(20, struct_test28().a[19]);
+
+  ASSERT(10, struct_test29().a);
+  ASSERT(20, struct_test29().b);
+  ASSERT(30, struct_test29().c);
 
   printf("OK\n");
   return 0;

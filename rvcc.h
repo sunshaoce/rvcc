@@ -244,6 +244,7 @@ struct Node {
   Type *FuncType;   // 函数类型
   Node *Args;       // 函数参数
   bool PassByStack; // 通过栈传递
+  Obj *RetBuffer;   // 返回值缓冲区
 
   // goto和标签语句
   char *Label;

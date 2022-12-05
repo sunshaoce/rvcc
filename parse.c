@@ -2688,6 +2688,11 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
   // 读取的返回类型
   Nd->Ty = Ty->ReturnTy;
   Nd->Args = Head.Next;
+
+  // 如果函数返回值是结构体，那么调用者需为返回值开辟一块空间
+  if (Nd->Ty->Kind == TY_STRUCT || Nd->Ty->Kind == TY_UNION)
+    Nd->RetBuffer = newLVar("", Nd->Ty);
+
   return Nd;
 }
 
