@@ -345,8 +345,21 @@ static void cc1(void) {
   Obj *Prog = parse(Tok);
 
   // 生成代码
+
+  // 防止编译器在编译途中退出，而只生成了部分的文件
+  // 开启临时输出缓冲区
+  char *Buf;
+  size_t BufLen;
+  FILE *OutputBuf = open_memstream(&Buf, &BufLen);
+
+  // 输出汇编到缓冲区中
+  codegen(Prog, OutputBuf);
+  fclose(OutputBuf);
+
+  // 从缓冲区中写入到文件中
   FILE *Out = openFile(OutputFile);
-  codegen(Prog, Out);
+  fwrite(Buf, BufLen, 1, Out);
+  fclose(Out);
 }
 
 // 调用汇编器
