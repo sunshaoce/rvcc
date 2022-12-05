@@ -766,6 +766,80 @@ static void copyRetBuffer(Obj *Var) {
   }
 }
 
+// 拷贝结构体的寄存器
+static void copyStructReg(void) {
+  Type *Ty = CurrentFn->Ty->ReturnTy;
+  int GP = 0, FP = 0;
+
+  printLn("  # 复制结构体寄存器");
+  printLn("  # 读取寄存器，写入存有struct地址的0(t1)中");
+  printLn("  mv t1, a0");
+
+  setFloStMemsTy(&Ty, GP, FP);
+
+  if (isFloNum(Ty->FSReg1Ty) || isFloNum(Ty->FSReg2Ty)) {
+    int Off = 0;
+    Type *RTys[2] = {Ty->FSReg1Ty, Ty->FSReg2Ty};
+    for (int I = 0; I < 2; ++I) {
+      switch (RTys[I]->Kind) {
+      case TY_FLOAT:
+        printLn("  flw fa%d, %d(t1)", FP++, Off);
+        Off = 4;
+        break;
+      case TY_DOUBLE:
+        printLn("  fld fa%d, %d(t1)", FP++, Off);
+        Off = 8;
+        break;
+      case TY_VOID:
+        break;
+      default:
+        printLn("  ld a%d, %d(t1)", GP++, Off);
+        Off = 8;
+        break;
+      }
+    }
+    return;
+  }
+
+  printLn("  # 复制返回的整型结构体的值");
+  for (int Off = 0; Off < Ty->Size; Off += 8) {
+    switch (Ty->Size - Off) {
+    case 1:
+      printLn("  lb a%d, %d(t1)", GP++, Off);
+      break;
+    case 2:
+      printLn("  lh a%d, %d(t1)", GP++, Off);
+      break;
+    case 3:
+    case 4:
+      printLn("  lw a%d, %d(t1)", GP++, Off);
+      break;
+    default:
+      printLn("  ld a%d, %d(t1)", GP++, Off);
+      break;
+    }
+  }
+}
+
+// 大于16字节的结构体返回值，需要拷贝内存
+static void copyStructMem(void) {
+  Type *Ty = CurrentFn->Ty->ReturnTy;
+  // 第一个参数，调用者的缓冲区指针
+  Obj *Var = CurrentFn->Params;
+
+  printLn("  # 复制大于16字节结构体内存");
+  printLn("  # 将栈内struct地址存入t1，调用者的结构体的地址");
+  printLn("  li t0, %d", Var->Offset);
+  printLn("  add t0, fp, t0");
+  printLn("  ld t1, 0(t0)");
+
+  printLn("  # 遍历结构体并从a0位置复制所有字节到t1");
+  for (int I = 0; I < Ty->Size; I++) {
+    printLn("  lb t0, %d(a0)", I);
+    printLn("  sb t0, %d(t1)", I);
+  }
+}
+
 // 生成表达式
 static void genExpr(Node *Nd) {
   // .loc 文件编号 行号
@@ -1412,8 +1486,20 @@ static void genStmt(Node *Nd) {
   case ND_RETURN:
     printLn("# 返回语句");
     // 不为空返回语句时
-    if (Nd->LHS)
+    if (Nd->LHS) {
       genExpr(Nd->LHS);
+
+      Type *Ty = Nd->LHS->Ty;
+      // 处理结构体作为返回值的情况
+      if (Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
+        if (Ty->Size <= 16)
+          // 小于16字节拷贝寄存器
+          copyStructReg();
+        else
+          // 大于16字节拷贝内存
+          copyStructMem();
+      }
+    }
     // 无条件跳转语句，跳转到.L.return段
     // j offset是 jal x0, offset的别名指令
     printLn("  # 跳转到.L.return.%s段", CurrentFn->Name);
