@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -34,6 +35,14 @@ typedef struct Relocation Relocation;
 // 字符串
 //
 
+// 字符串数组
+typedef struct {
+  char **Data;  // 数据内容
+  int Capacity; // 能容纳字符串的容量
+  int Len;      // 当前字符串的数量，Len ≤ Capacity
+} StringArray;
+
+void strArrayPush(StringArray *Arr, char *S);
 char *format(char *Fmt, ...);
 
 //

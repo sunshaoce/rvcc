@@ -37,4 +37,19 @@ $rvcc --help 2>&1 | grep -q rvcc
 # 将--help传入check函数
 check --help
 
+# -S
+echo 'int main() {}' | $rvcc -S -o - - | grep -q 'main:'
+check -S
+
+# 默认输出的文件
+rm -f $tmp/out.o $tmp/out.s
+echo 'int main() {}' > $tmp/out.c
+($rvcc $tmp/out.c > $tmp/out.o )
+[ -f $tmp/out.o ]
+check 'default output file'
+
+($rvcc -S $tmp/out.c > $tmp/out.s)
+[ -f $tmp/out.s ]
+check 'default output file'
+
 echo OK
