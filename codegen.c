@@ -2055,6 +2055,10 @@ void emitText(Obj *Prog) {
     genStmt(Fn->Body);
     assert(Depth == 0);
 
+    // main默认返回0
+    if (strcmp(Fn->Name, "main") == 0)
+        printLn("  li a0, 0");
+
     // Epilogue，后语
     // 输出return段标签
     printLn("# =====%s段结束===============", Fn->Name);
