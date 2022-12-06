@@ -1678,10 +1678,15 @@ static void assignLVarOffsets(Obj *Prog) {
       if (Var->Offset && !Var->IsHalfByStack)
         continue;
 
+      // 数组超过16字节时，对齐值至少为16字节
+      int Align = (Var->Ty->Kind == TY_ARRAY && Var->Ty->Size >= 16)
+                      ? MAX(16, Var->Align)
+                      : Var->Align;
+
       // 每个变量分配空间
       Offset += Var->Ty->Size;
       // 对齐变量
-      Offset = alignTo(Offset, Var->Align);
+      Offset = alignTo(Offset, Align);
       // 为每个变量赋一个偏移量，或者说是栈中地址
       Var->Offset = -Offset;
       printLn(" #  寄存器传递变量%s偏移量%d", Var->Name, Var->Offset);
