@@ -2501,6 +2501,19 @@ static void structMembers(Token **Rest, Token *Tok, Type *Ty) {
     Type *BaseTy = declspec(&Tok, Tok, &Attr);
     int First = true;
 
+    // 匿名的结构体成员
+    if ((BaseTy->Kind == TY_STRUCT || BaseTy->Kind == TY_UNION) &&
+        consume(&Tok, Tok, ";")) {
+      Member *Mem = calloc(1, sizeof(Member));
+      Mem->Ty = BaseTy;
+      Mem->Idx = Idx++;
+      // 如果对齐值不存在，则使用匿名成员的对齐值
+      Mem->Align = Attr.Align ? Attr.Align : Mem->Ty->Align;
+      Cur = Cur->Next = Mem;
+      continue;
+    }
+
+    // 常规结构体成员
     while (!consume(&Tok, Tok, ";")) {
       if (!First)
         Tok = skip(Tok, ",");
@@ -2647,22 +2660,48 @@ static Type *unionDecl(Token **Rest, Token *Tok) {
 
 // 获取结构体成员
 static Member *getStructMember(Type *Ty, Token *Tok) {
-  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next)
+  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
+    // 匿名结构体成员，可以由上一级的结构体进行访问
+    if ((Mem->Ty->Kind == TY_STRUCT || Mem->Ty->Kind == TY_UNION) &&
+        !Mem->Name) {
+      if (getStructMember(Mem->Ty, Tok))
+        return Mem;
+      continue;
+    }
+
+    // 常规结构体成员
     if (Mem->Name->Len == Tok->Len &&
         !strncmp(Mem->Name->Loc, Tok->Loc, Tok->Len))
       return Mem;
-  errorTok(Tok, "no such member");
+  }
   return NULL;
 }
 
 // 构建结构体成员的节点
-static Node *structRef(Node *LHS, Token *Tok) {
-  addType(LHS);
-  if (LHS->Ty->Kind != TY_STRUCT && LHS->Ty->Kind != TY_UNION)
-    errorTok(LHS->Tok, "not a struct nor a union");
+// 匿名结构体成员，可以由上一级的结构体进行访问
+static Node *structRef(Node *Nd, Token *Tok) {
+  addType(Nd);
+  if (Nd->Ty->Kind != TY_STRUCT && Nd->Ty->Kind != TY_UNION)
+    errorTok(Nd->Tok, "not a struct nor a union");
 
-  Node *Nd = newUnary(ND_MEMBER, LHS, Tok);
-  Nd->Mem = getStructMember(LHS->Ty, Tok);
+  // 节点类型
+  Type *Ty = Nd->Ty;
+
+  // 遍历匿名的成员，直到匹配到具名的
+  while (true) {
+    // 获取结构体成员
+    Member *Mem = getStructMember(Ty, Tok);
+    if (!Mem)
+      errorTok(Tok, "no such member");
+    // 构造成员节点
+    Nd = newUnary(ND_MEMBER, Nd, Tok);
+    Nd->Mem = Mem;
+    // 判断是否具名
+    if (Mem->Name)
+      break;
+    // 继续遍历匿名成员的成员
+    Ty = Mem->Ty;
+  }
   return Nd;
 }
 
