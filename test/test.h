@@ -20,3 +20,6 @@ void exit(int n);
 
 // [204] 支持可变参数函数接受任意数量的参数
 int vsprintf(char *buf, char *fmt, void *ap);
+
+// [221] 支持__DATE__和__TIME__宏
+long strlen(char *s);
