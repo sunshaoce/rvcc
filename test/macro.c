@@ -402,6 +402,11 @@ int main() {
   ASSERT(11, strlen(__DATE__));
   ASSERT(8, strlen(__TIME__));
 
+  printf("[222] [GNU] 支持__COUNTER__宏\n");
+  ASSERT(0, __COUNTER__);
+  ASSERT(1, __COUNTER__);
+  ASSERT(2, __COUNTER__);
+
   printf("OK\n");
   return 0;
 }
