@@ -398,6 +398,10 @@ int main() {
   ASSERT(5, ({ int f0zz=5; CONCAT(f,0zz); }));
   ASSERT(5, ({ CONCAT(4,.57) + 0.5; }));
 
+  printf("[221] 支持__DATE__和__TIME__宏\n");
+  ASSERT(11, strlen(__DATE__));
+  ASSERT(8, strlen(__TIME__));
+
   printf("OK\n");
   return 0;
 }
