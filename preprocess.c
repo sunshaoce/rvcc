@@ -1017,6 +1017,12 @@ static Token *lineMacro(Token *Tmpl) {
   return newNumToken(Tmpl->LineNo, Tmpl);
 }
 
+// __COUNTER__被展开为从0开始的连续值
+static Token *counterMacro(Token *Tmpl) {
+  static int I = 0;
+  return newNumToken(I++, Tmpl);
+}
+
 // 为__DATE__设置为当前日期，例如："May 17 2020"
 static char *formatDate(struct tm *Tm) {
   static char Mon[][4] = {
@@ -1086,6 +1092,8 @@ void initMacros(void) {
 
   addBuiltin("__FILE__", fileMacro);
   addBuiltin("__LINE__", lineMacro);
+  // 支持__COUNTER__
+  addBuiltin("__COUNTER__", counterMacro);
 
   // 支持__DATE__和__TIME__
   time_t Now = time(NULL);
