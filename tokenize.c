@@ -731,6 +731,54 @@ static void removeBackslashNewline(char *P) {
   P[J] = '\0';
 }
 
+// 读取unicode字符
+static uint32_t readUniversalChar(char *P, int Len) {
+  uint32_t C = 0;
+  for (int I = 0; I < Len; I++) {
+    if (!isxdigit(P[I]))
+      return 0;
+    // 左移（十六进制数的）4位，然后存入当前十六进制数
+    C = (C << 4) | fromHex(P[I]);
+  }
+  return C;
+}
+
+// 替换\u或\U转义序列为相应的UTF-8编码
+static void convertUniversalChars(char *P) {
+  char *Q = P;
+
+  while (*P) {
+    if (startsWith(P, "\\u")) {
+      // 16位(4个十六进制数字)宽字符串字面量
+      uint32_t C = readUniversalChar(P + 2, 4);
+      if (C) {
+        P += 6;
+        Q += encodeUTF8(Q, C);
+      } else {
+        *Q++ = *P++;
+      }
+    } else if (startsWith(P, "\\U")) {
+      // 32位(8个十六进制数字)宽字符串字面量
+      uint32_t C = readUniversalChar(P + 2, 8);
+      if (C) {
+        P += 10;
+        Q += encodeUTF8(Q, C);
+      } else {
+        *Q++ = *P++;
+      }
+    } else if (P[0] == '\\') {
+      // 反斜杠 \ 的匹配
+      *Q++ = *P++;
+      *Q++ = *P++;
+    } else {
+      // 其他字符
+      *Q++ = *P++;
+    }
+  }
+
+  *Q = '\0';
+}
+
 // 词法分析文件
 Token *tokenizeFile(char *Path) {
   // 读取文件内容
@@ -742,6 +790,8 @@ Token *tokenizeFile(char *Path) {
   canonicalizeNewline(P);
   // 移除续行
   removeBackslashNewline(P);
+  // 转换unicode字符为UTF-8编码
+  convertUniversalChars(P);
 
   // 文件编号
   static int FileNo;

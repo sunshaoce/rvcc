@@ -13,6 +13,7 @@ add_executable( rvcc
   parse.c
   type.c
   codegen.c
+  unicode.c
 )
 
 # 编译参数
