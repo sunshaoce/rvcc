@@ -312,12 +312,13 @@ static Token *readCharLiteral(char *Start, char *Quote) {
     errorAt(Start, "unclosed char literal");
 
   // 解析字符
-  char C;
+  int C;
   // 转义
   if (*P == '\\')
     C = readEscapedChar(&P, P + 1);
   else
-    C = *P++;
+    // 对于其他字符进行解码
+    C = decodeUTF8(&P, P);
 
   // strchr返回以 ' 开头的字符串，若无则为NULL
   char *End = strchr(P, '\'');
@@ -563,6 +564,8 @@ Token *tokenize(File *FP) {
     // 解析字符字面量
     if (*P == '\'') {
       Cur->Next = readCharLiteral(P, P);
+      // 单字节字符
+      Cur->Val = (char)Cur->Val;
       Cur = Cur->Next;
       P += Cur->Len;
       continue;

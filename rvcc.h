@@ -394,6 +394,8 @@ int alignTo(int N, int Align);
 
 // 将unicode字符编码为UTF-8的格式
 int encodeUTF8(char *Buf, uint32_t C);
+// 将UTF-8的格式解码为unicode字符
+uint32_t decodeUTF8(char **NewPos, char *P);
 
 //
 // 主程序，驱动文件
