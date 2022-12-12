@@ -587,6 +587,14 @@ Token *tokenize(File *FP) {
       continue;
     }
 
+    // UTF-32 字符字面量
+    if (startsWith(P, "U'")) {
+      // 使用四个字节
+      Cur = Cur->Next = readCharLiteral(P, P + 1, TyUInt);
+      P += Cur->Len;
+      continue;
+    }
+
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
     if (isIdent1(*P)) {
