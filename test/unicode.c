@@ -41,6 +41,14 @@ int main() {
 
   ASSERT(0, strcmp(STR(U'a'), "U'a'"));
 
+  printf("[228] 支持UTF-8字符串字面量\n");
+  ASSERT(4, sizeof(u8"abc"));
+  ASSERT(5, sizeof(u8"😀"));
+  ASSERT(7, sizeof(u8"汉语"));
+  ASSERT(0, strcmp(u8"abc", "abc"));
+
+  ASSERT(0, strcmp(STR(u8"a"), "u8\"a\""));
+
   printf("OK\n");
   return 0;
 }

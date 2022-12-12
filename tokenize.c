@@ -278,17 +278,18 @@ static char *stringLiteralEnd(char *P) {
   return P;
 }
 
-static Token *readStringLiteral(char *Start) {
+// 读取字符串字面量：字符串开始的位置，左引号的位置
+static Token *readStringLiteral(char *Start, char *Quote) {
   // 读取到字符串字面量的右引号
-  char *End = stringLiteralEnd(Start + 1);
+  char *End = stringLiteralEnd(Quote + 1);
   // 定义一个与字符串字面量内字符数+1的Buf
   // 用来存储最大位数的字符串字面量
-  char *Buf = calloc(1, End - Start);
+  char *Buf = calloc(1, End - Quote);
   // 实际的字符位数，一个转义字符为1位
   int Len = 0;
 
   // 将读取后的结果写入Buf
-  for (char *P = Start + 1; P < End;) {
+  for (char *P = Quote + 1; P < End;) {
     if (*P == '\\') {
       Buf[Len++] = readEscapedChar(&P, P + 1);
     } else {
@@ -555,8 +556,15 @@ Token *tokenize(File *FP) {
 
     // 解析字符串字面量
     if (*P == '"') {
-      Cur->Next = readStringLiteral(P);
+      Cur->Next = readStringLiteral(P, P);
       Cur = Cur->Next;
+      P += Cur->Len;
+      continue;
+    }
+
+    // UTF-8字符串字面量
+    if (startsWith(P, "u8\"")) {
+      Cur = Cur->Next = readStringLiteral(P, P + 2);
       P += Cur->Len;
       continue;
     }
