@@ -195,7 +195,6 @@ struct Node {
   Member *Mem;
 
   // 函数调用
-  char *FuncName; // 函数名
   Type *FuncType; // 函数类型
   Node *Args;     // 函数参数
 

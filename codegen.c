@@ -74,15 +74,43 @@ static void genAddr(Node *Nd) {
   switch (Nd->Kind) {
   // 变量
   case ND_VAR:
+    // 局部变量
     if (Nd->Var->IsLocal) { // 偏移量是相对于fp的
       printLn("  # 获取局部变量%s的栈内地址为%d(fp)", Nd->Var->Name,
               Nd->Var->Offset);
       printLn("  li t0, %d", Nd->Var->Offset);
       printLn("  add a0, fp, t0");
-    } else {
-      printLn("  # 获取全局变量%s的地址", Nd->Var->Name);
-      printLn("  la a0, %s", Nd->Var->Name);
+      return;
     }
+
+    // 函数
+    if (Nd->Ty->Kind == TY_FUNC) {
+      // 定义的函数
+      if (Nd->Var->IsDefinition) {
+        printLn("  # 获取函数%s的地址", Nd->Var->Name);
+        printLn("  la a0, %s", Nd->Var->Name);
+      }
+      // 外部函数
+      else {
+        int C = count();
+        printLn("  # 获取外部函数的绝对地址");
+        printLn(".Lpcrel_hi%d:", C);
+        // 高20位地址，存到a0中
+        printLn("  auipc a0, %%got_pcrel_hi(%s)", Nd->Var->Name);
+        // 低12位地址，加到a0中
+        printLn("  ld a0, %%pcrel_lo(.Lpcrel_hi%d)(a0)", C);
+      }
+      return;
+    }
+
+    // 全局变量
+    int C = count();
+    printLn("  # 获取全局变量的绝对地址");
+    printLn(".Lpcrel_hi%d:", C);
+    // 高20位地址，存到a0中
+    printLn("  auipc a0, %%got_pcrel_hi(%s)", Nd->Var->Name);
+    // 低12位地址，加到a0中
+    printLn("  ld a0, %%pcrel_lo(.Lpcrel_hi%d)(a0)", C);
     return;
   // 解引用*
   case ND_DEREF:
@@ -113,6 +141,7 @@ static void load(Type *Ty) {
   case TY_ARRAY:
   case TY_STRUCT:
   case TY_UNION:
+  case TY_FUNC:
     return;
   case TY_FLOAT:
     printLn("  # 访问a0中存放的地址，取得的值存入fa0");
@@ -575,6 +604,9 @@ static void genExpr(Node *Nd) {
   case ND_FUNCALL: {
     // 计算所有参数的值，正向压栈
     pushArgs(Nd->Args);
+    genExpr(Nd->LHS);
+    // 将a0的值存入t5
+    printLn("  mv t5, a0");
 
     // 反向弹栈，a0->参数1，a1->参数2……
     int GP = 0, FP = 0;
@@ -612,13 +644,13 @@ static void genExpr(Node *Nd) {
 
     if (Depth % 2 == 0) {
       // 偶数深度，sp已经对齐16字节
-      printLn("  # 调用%s函数", Nd->FuncName);
-      printLn("  call %s", Nd->FuncName);
+      printLn("  # 调用函数");
+      printLn("  jalr t5");
     } else {
       // 对齐sp到16字节的边界
-      printLn("  # 对齐sp到16字节的边界，并调用%s函数", Nd->FuncName);
+      printLn("  # 对齐sp到16字节的边界，并调用函数");
       printLn("  addi sp, sp, -8");
-      printLn("  call %s", Nd->FuncName);
+      printLn("  jalr t5");
       printLn("  addi sp, sp, 8");
     }
 

@@ -116,6 +116,11 @@ double add_double3(double x, double y, double z) {
   return x + y + z;
 }
 
+// [151] 支持函数指针
+int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
+  return fn;
+}
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -202,6 +207,12 @@ int main() {
 
   // [147] 支持可变参数函数使用浮点数实参
   ASSERT(0, ({ char buf[100]; fmt(buf, "%.1f", (float)3.5); strcmp(buf, "3.5"); }));
+
+  printf("\n[151] 支持函数指针\n");
+  ASSERT(5, (add2)(2, 3));
+  ASSERT(5, (&add2)(2,3));
+  ASSERT(7, ({ int (*fn)(int,int) = add2; fn(2,5); }));
+  ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
   printf("OK\n");
   return 0;
