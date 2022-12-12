@@ -123,6 +123,26 @@ static void genAddr(Node *Nd) {
       return;
     }
 
+    if (OptFPIC) {
+      int C = count();
+      printLn(".Lpcrel_hi%d:", C);
+      // Thread-local variable
+      if (Nd->Var->IsTLS) {
+        printLn("  # 获取PIC中TLS%s的地址", Nd->Var->Name);
+        printLn("  auipc a0, %%tls_gd_pcrel_hi(%s)", Nd->Var->Name);
+        printLn("  addi a0, a0, %%pcrel_lo(.Lpcrel_hi%d)", C);
+        printLn("  call __tls_get_addr@plt");
+        return;
+      }
+
+      // 函数或者全局变量
+      printLn("  # 获取PIC中%s%s的地址",
+              Nd->Ty->Kind == TY_FUNC ? "函数" : "全局变量", Nd->Var->Name);
+      printLn("  auipc a0, %%got_pcrel_hi(%s)", Nd->Var->Name);
+      printLn("  ld a0, %%pcrel_lo(.Lpcrel_hi%d)(a0)", C);
+      return;
+    }
+
     // Thread-local variable
     if (Nd->Var->IsTLS) {
       printLn("  lui a0, %%tprel_hi(%s)", Nd->Var->Name);

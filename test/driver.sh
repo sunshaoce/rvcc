@@ -309,4 +309,16 @@ $rvcc -c -MD -MF $tmp/md-mf.d -I. $tmp/md2.c
 grep -q -z '^md2.o:.*md2\.c .*/out2\.h' $tmp/md-mf.d
 check -MD
 
+# [296] 支持-fpic和-fPIC选项
+echo 'extern int bar; int foo() { return bar; }' | $rvcc -fPIC -xc -c -o $tmp/foo.o -
+if [ "$RISCV" = "" ];then
+  cc -shared -o $tmp/foo.so $tmp/foo.o
+else
+  $RISCV/bin/riscv64-unknown-linux-gnu-gcc -shared -o $tmp/foo.so $tmp/foo.o
+fi
+
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/main.c
+$rvcc -o $tmp/foo $tmp/main.c $tmp/foo.so
+check -fPIC
+
 echo OK
