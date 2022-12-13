@@ -641,6 +641,13 @@ Token *tokenize(File *FP) {
       continue;
     }
 
+    // 宽字符串字面量
+    if (startsWith(P, "L\"")) {
+      Cur = Cur->Next = readUTF32StringLiteral(P, P + 1, TyInt);
+      P += Cur->Len;
+      continue;
+    }
+
     // UTF-32字符串字面量
     if (startsWith(P, "U\"")) {
       Cur = Cur->Next = readUTF32StringLiteral(P, P + 1, TyUInt);
