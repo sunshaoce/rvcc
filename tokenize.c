@@ -345,6 +345,31 @@ static Token *readUTF16StringLiteral(char *Start, char *Quote) {
   return Tok;
 }
 
+// 解码UTF-8的字符串并将其转码为UTF-32
+//
+// UTF-32是4字节编码
+static Token *readUTF32StringLiteral(char *Start, char *Quote, Type *Ty) {
+  char *End = stringLiteralEnd(Quote + 1);
+  uint32_t *Buf = calloc(4, End - Quote);
+  int Len = 0;
+
+  // 解码UTF-8的字符串文字
+  for (char *P = Quote + 1; P < End;) {
+    if (*P == '\\')
+      // 处理转义字符
+      Buf[Len++] = readEscapedChar(&P, P + 1);
+    else
+      // 解码UTF-8
+      Buf[Len++] = decodeUTF8(&P, P);
+  }
+
+  // 构建UTF-32编码的字符串终结符
+  Token *Tok = newToken(TK_STR, Start, End + 1);
+  Tok->Ty = arrayOf(Ty, Len + 1);
+  Tok->Str = (char *)Buf;
+  return Tok;
+}
+
 // 读取字符字面量
 static Token *readCharLiteral(char *Start, char *Quote, Type *Ty) {
   char *P = Quote + 1;
@@ -612,6 +637,13 @@ Token *tokenize(File *FP) {
     // UTF-16字符串字面量
     if (startsWith(P, "u\"")) {
       Cur = Cur->Next = readUTF16StringLiteral(P, P + 1);
+      P += Cur->Len;
+      continue;
+    }
+
+    // UTF-32字符串字面量
+    if (startsWith(P, "U\"")) {
+      Cur = Cur->Next = readUTF32StringLiteral(P, P + 1, TyUInt);
       P += Cur->Len;
       continue;
     }
