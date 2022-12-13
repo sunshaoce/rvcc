@@ -169,6 +169,7 @@ struct Obj {
 
   // 全局变量
   bool IsTentative; // 不定的
+  bool IsTLS;       // thread local storage
   char *InitData;   // 用于初始化的数据
   Relocation *Rel;  // 指向其他全局变量的指针
 
