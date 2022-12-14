@@ -3,6 +3,9 @@
 // [226] 支持UTF-16字符字面量
 #define STR(x) #x
 
+// [232] 支持UTF-16字符串字面量初始化器
+typedef unsigned short char16_t;
+
 int main() {
   printf("[224] 支持\\u和\\U转义序列\n");
   ASSERT(4, sizeof(L'\0'));
@@ -89,6 +92,11 @@ int main() {
   ASSERT(-1, L"\xffffffff"[0] >> 31);
 
   ASSERT(0, strcmp(STR(L"a"), "L\"a\""));
+
+  printf("[232] 支持UTF-16字符串字面量初始化器\n");
+  ASSERT(u'α', ({ char16_t x[] = u"αβ"; x[0]; }));
+  ASSERT(u'β', ({ char16_t x[] = u"αβ"; x[1]; }));
+  ASSERT(6, ({ char16_t x[] = u"αβ"; sizeof(x); }));
 
   printf("OK\n");
   return 0;

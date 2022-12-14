@@ -1001,9 +1001,27 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 取数组和字符串的最短长度
   int Len = MIN(Init->Ty->ArrayLen, Tok->Ty->ArrayLen);
-  // 遍历赋值
-  for (int I = 0; I < Len; I++)
-    Init->Children[I]->Expr = newNum(Tok->Str[I], Tok);
+
+  // 获取字符串字面量
+  switch (Init->Ty->Base->Size) {
+  case 1: {
+    // char类型
+    char *Str = Tok->Str;
+    // 遍历赋值
+    for (int I = 0; I < Len; I++)
+      Init->Children[I]->Expr = newNum(Str[I], Tok);
+    break;
+  }
+  case 2: {
+    // UTF-16类型
+    uint16_t *Str = (uint16_t *)Tok->Str;
+    for (int I = 0; I < Len; I++)
+      Init->Children[I]->Expr = newNum(Str[I], Tok);
+    break;
+  }
+  default:
+    unreachable();
+  }
   *Rest = Tok->Next;
 }
 
