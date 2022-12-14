@@ -1107,10 +1107,81 @@ void initMacros(void) {
   defineMacro("__TIME__", formatTime(Tm));
 }
 
+// 字符串类型
+typedef enum {
+  STR_NONE,
+  STR_UTF8,
+  STR_UTF16,
+  STR_UTF32,
+  STR_WIDE,
+} StringKind;
+
+// 获取字符串类型
+static StringKind getStringKind(Token *Tok) {
+  if (!strcmp(Tok->Loc, "u8"))
+    return STR_UTF8;
+
+  switch (Tok->Loc[0]) {
+  case '"':
+    return STR_NONE;
+  case 'u':
+    return STR_UTF16;
+  case 'U':
+    return STR_UTF32;
+  case 'L':
+    return STR_WIDE;
+  default:
+    unreachable();
+    return -1;
+  }
+}
+
 // 拼接相邻的字符串
-static void joinAdjacentStringLiterals(Token *Tok1) {
+static void joinAdjacentStringLiterals(Token *Tok) {
+  // 第一遍：如果常规字符串字面量与宽相邻字符串字面量相邻，
+  // 常规字符串字面量在连接之前转换为宽类型。
+  for (Token *Tok1 = Tok; Tok1->Kind != TK_EOF;) {
+    // 判断相邻两个终结符是否都为字符串
+    if (Tok1->Kind != TK_STR || Tok1->Next->Kind != TK_STR) {
+      Tok1 = Tok1->Next;
+      continue;
+    }
+
+    // 获取第一个字符串的类型
+    StringKind Kind = getStringKind(Tok1);
+    Type *BaseTy = Tok1->Ty->Base;
+
+    // 遍历第二个及后面所有字符串
+    for (Token *T = Tok1->Next; T->Kind == TK_STR; T = T->Next) {
+      // 获取字符串的类型
+      StringKind K = getStringKind(T);
+      if (Kind == STR_NONE) {
+        // 如果之前字符串没有类型，那么就设置为当前类型
+        Kind = K;
+        BaseTy = T->Ty->Base;
+      } else if (K != STR_NONE && Kind != K) {
+        // 如果之前字符串有类型，且和现在类型冲突
+        errorTok(T,
+                 "unsupported non-standard concatenation of string literals");
+      }
+    }
+
+    // 如果字符串的类型不是char
+    if (BaseTy->Size > 1)
+      for (Token *T = Tok1; T->Kind == TK_STR; T = T->Next)
+        // 如果当前字符串类型为char
+        if (T->Ty->Base->Size == 1)
+          // 则设置为连接后的字符串的类型
+          *T = *tokenizeStringLiteral(T, BaseTy);
+
+    // 跳过遍历过的字符串
+    while (Tok1->Kind == TK_STR)
+      Tok1 = Tok1->Next;
+  }
+
+  // 第二遍：拼接相邻的字符串字面量
   // 遍历直到终止符
-  while (Tok1->Kind != TK_EOF) {
+  for (Token *Tok1 = Tok; Tok1->Kind != TK_EOF;) {
     // 判断是否为两个字符串终结符在一起
     if (Tok1->Kind != TK_STR || Tok1->Next->Kind != TK_STR) {
       Tok1 = Tok1->Next;
