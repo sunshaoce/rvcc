@@ -111,6 +111,8 @@ void convertKeywords(Token *Tok);
 File **getInputFiles(void);
 // 新建一个File
 File *newFile(char *Name, int FileNo, char *Contents);
+// 词法解析字符串字面量
+Token *tokenizeStringLiteral(Token *Tok, Type *BaseTy);
 // 终结符解析，文件名，文件内容
 Token *tokenize(File *FP);
 // 词法分析
