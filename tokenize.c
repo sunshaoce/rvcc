@@ -571,6 +571,19 @@ static void addLineNumbers(Token *Tok) {
   } while (*P++);
 }
 
+// 词法解析字符串字面量
+Token *tokenizeStringLiteral(Token *Tok, Type *BaseTy) {
+  Token *T;
+  if (BaseTy->Size == 2)
+    // UTF-16
+    T = readUTF16StringLiteral(Tok->Loc, Tok->Loc);
+  else
+    // UTF-32
+    T = readUTF32StringLiteral(Tok->Loc, Tok->Loc, BaseTy);
+  T->Next = Tok->Next;
+  return T;
+}
+
 // 终结符解析，文件名，文件内容
 Token *tokenize(File *FP) {
   // 设定当前文件
