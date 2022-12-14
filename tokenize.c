@@ -305,8 +305,8 @@ static Token *readStringLiteral(char *Start) {
 }
 
 // 读取字符字面量
-static Token *readCharLiteral(char *Start) {
-  char *P = Start + 1;
+static Token *readCharLiteral(char *Start, char *Quote) {
+  char *P = Quote + 1;
   // 解析字符为 \0 的情况
   if (*P == '\0')
     errorAt(Start, "unclosed char literal");
@@ -544,8 +544,15 @@ Token *tokenize(File *FP) {
 
     // 解析字符字面量
     if (*P == '\'') {
-      Cur->Next = readCharLiteral(P);
+      Cur->Next = readCharLiteral(P, P);
       Cur = Cur->Next;
+      P += Cur->Len;
+      continue;
+    }
+
+    // 宽字符字面量，占两个字节
+    if (startsWith(P, "L'")) {
+      Cur = Cur->Next = readCharLiteral(P, P + 1);
       P += Cur->Len;
       continue;
     }
