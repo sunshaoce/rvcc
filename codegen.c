@@ -135,6 +135,7 @@ static void genAddr(Node *Nd) {
         return;
       }
 
+      // TODO：替换所有的无条件跳转指令
       // 函数或者全局变量
       printLn("  # 获取PIC中%s%s的地址",
               Nd->Ty->Kind == TY_FUNC ? "函数" : "全局变量", Nd->Var->Name);
@@ -143,6 +144,7 @@ static void genAddr(Node *Nd) {
       return;
     }
 
+    // TODO：替换所有的无条件跳转指令
     // Thread-local variable
     if (Nd->Var->IsTLS) {
       printLn("  lui a0, %%tprel_hi(%s)", Nd->Var->Name);
@@ -1937,7 +1939,9 @@ static void genStmt(Node *Nd) {
     return;
   // goto语句
   case ND_GOTO:
-    printLn("  j %s", Nd->UniqueLabel);
+    // TODO：替换所有的无条件跳转指令
+    printLn("  la t0, %s", Nd->UniqueLabel);
+    printLn("  jr t0");
     return;
   case ND_GOTO_EXPR:
     genExpr(Nd->LHS);
