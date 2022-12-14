@@ -5,6 +5,9 @@
 
 // [232] 支持UTF-16字符串字面量初始化器
 typedef unsigned short char16_t;
+// [233] 支持UTF-32字符串字面量初始化器
+typedef unsigned int char32_t;
+typedef int wchar_t;
 
 int main() {
   printf("[224] 支持\\u和\\U转义序列\n");
@@ -97,6 +100,15 @@ int main() {
   ASSERT(u'α', ({ char16_t x[] = u"αβ"; x[0]; }));
   ASSERT(u'β', ({ char16_t x[] = u"αβ"; x[1]; }));
   ASSERT(6, ({ char16_t x[] = u"αβ"; sizeof(x); }));
+
+  printf("[233] 支持UTF-32字符串字面量初始化器\n");
+  ASSERT(U'🤔', ({ char32_t x[] = U"🤔x"; x[0]; }));
+  ASSERT(U'x', ({ char32_t x[] = U"🤔x"; x[1]; }));
+  ASSERT(12, ({ char32_t x[] = U"🤔x"; sizeof(x); }));
+
+  ASSERT(L'🤔', ({ wchar_t x[] = L"🤔x"; x[0]; }));
+  ASSERT(L'x', ({ wchar_t x[] = L"🤔x"; x[1]; }));
+  ASSERT(12, ({ wchar_t x[] = L"🤔x"; sizeof(x); }));
 
   printf("OK\n");
   return 0;
