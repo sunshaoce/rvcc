@@ -9,6 +9,9 @@ typedef unsigned short char16_t;
 typedef unsigned int char32_t;
 typedef int wchar_t;
 
+// [235] 支持标志符使用多字节UTF-8字符
+int π = 3;
+
 int main() {
   printf("[224] 支持\\u和\\U转义序列\n");
   ASSERT(4, sizeof(L'\0'));
@@ -109,6 +112,10 @@ int main() {
   ASSERT(L'🤔', ({ wchar_t x[] = L"🤔x"; x[0]; }));
   ASSERT(L'x', ({ wchar_t x[] = L"🤔x"; x[1]; }));
   ASSERT(12, ({ wchar_t x[] = L"🤔x"; sizeof(x); }));
+
+  printf("[235] 支持标志符使用多字节UTF-8字符\n");
+  ASSERT(3, π);
+  ASSERT(3, ({ int あβ0¾=3; あβ0¾; }));
 
   printf("OK\n");
   return 0;
