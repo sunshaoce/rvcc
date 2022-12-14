@@ -100,6 +100,10 @@ int main() {
 of(char), \
          "sizeof(char)");
 
+  printf("[194] 识别宽字符字面量\n");
+  ASSERT(4, sizeof(L'\0'));
+  ASSERT(97, L'a');
+
   printf("OK\n");
   return 0;
 }
