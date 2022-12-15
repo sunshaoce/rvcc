@@ -305,3 +305,10 @@ int sum2_5(int a0, float fa0, int a1, int a2, int a3, int a4, float fa1, int a5,
     x += z;
   }
 }
+// [280] 支持long double
+int add_long_double(int a, long double b, float c) {
+  return a+b+c;
+}
+
+typedef struct {int a; long double b;} LDSt_1;
+int ld_struct_test_1(LDSt_1 x, int n) {switch(n){case 0:return x.a;break;case 1:return x.b;break;default:return -1;break;}}
