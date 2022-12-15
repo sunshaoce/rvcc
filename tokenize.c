@@ -149,14 +149,33 @@ static bool startsWith(char *Str, char *SubStr) {
 
 // 判断标记符的首字母规则
 // [a-zA-Z_]
-static bool isIdent1(char C) {
+bool isIdent1(char C) {
   // a-z与A-Z在ASCII中不相连，所以需要分别判断
   return ('a' <= C && C <= 'z') || ('A' <= C && C <= 'Z') || C == '_';
 }
 
 // 判断标记符的非首字母的规则
 // [a-zA-Z0-9_]
-static bool isIdent2(char C) { return isIdent1(C) || ('0' <= C && C <= '9'); }
+bool isIdent2(char C) { return isIdent1(C) || ('0' <= C && C <= '9'); }
+
+// 读取标识符，并返回其长度
+static int readIdent(char *Start) {
+  char *P = Start;
+  uint32_t C = decodeUTF8(&P, P);
+  // 如果不是标识符，返回0
+  if (!isIdent1_1(C))
+    return 0;
+
+  // 遍历标识符所有字符
+  while (true) {
+    char *Q;
+    C = decodeUTF8(&Q, P);
+    if (!isIdent2_1(C))
+      // 返回标识符长度
+      return P - Start;
+    P = Q;
+  }
+}
 
 // 返回一位十六进制转十进制
 // hexDigit = [0-9a-fA-F]
@@ -691,13 +710,11 @@ Token *tokenize(File *FP) {
 
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
-    if (isIdent1(*P)) {
-      char *Start = P;
-      do {
-        ++P;
-      } while (isIdent2(*P));
-      Cur->Next = newToken(TK_IDENT, Start, P);
+    int IdentLen = readIdent(P);
+    if (IdentLen) {
+      Cur->Next = newToken(TK_IDENT, P, P + IdentLen);
       Cur = Cur->Next;
+      P += Cur->Len;
       continue;
     }
 
