@@ -1069,17 +1069,34 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
 
 // 计算数组初始化元素个数
 static int countArrayInitElements(Token *Tok, Type *Ty) {
-  Initializer *Dummy = newInitializer(Ty->Base, false);
-  // 项数
-  int I = 0;
+  bool First = true;
+  Initializer *Dummy = newInitializer(Ty->Base, true);
+
+  // 项数，最大项数
+  int I = 0, Max = 0;
 
   // 遍历所有匹配的项
-  for (; !consumeEnd(&Tok, Tok); I++) {
-    if (I > 0)
+  while (!consumeEnd(&Tok, Tok)) {
+    if (!First)
       Tok = skip(Tok, ",");
-    initializer2(&Tok, Tok, Dummy);
+    First = false;
+
+    // 处理指派
+    if (equal(Tok, "[")) {
+      I = constExpr(&Tok, Tok->Next);
+      if (equal(Tok, "..."))
+        I = constExpr(&Tok, Tok->Next);
+      Tok = skip(Tok, "]");
+      designation(&Tok, Tok, Dummy);
+    } else {
+      initializer2(&Tok, Tok, Dummy);
+    }
+
+    I++;
+    // 当前项数与之前最大项数取最大数
+    Max = MAX(Max, I);
   }
-  return I;
+  return Max;
 }
 
 // arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
