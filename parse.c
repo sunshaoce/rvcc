@@ -190,6 +190,8 @@ static Type *enumSpecifier(Token **Rest, Token *Tok);
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr);
+static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               int I);
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
 static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
                                 Type **NewTy);
@@ -1032,6 +1034,39 @@ static void stringInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   *Rest = Tok->Next;
 }
 
+// 数组指派器，用于从指定位置开始初始化
+static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
+  Token *Start = Tok;
+  // 获取指定位置的索引
+  int I = constExpr(&Tok, Tok->Next);
+  if (I >= Ty->ArrayLen)
+    errorTok(Start, "array designator index exceeds array bounds");
+  *Rest = skip(Tok, "]");
+  // 返回索引值
+  return I;
+}
+
+// designation = ("[" const-expr "]")* "=" initializer
+// 进行指派
+static void designation(Token **Rest, Token *Tok, Initializer *Init) {
+  // 多层[索引]的解析
+  if (equal(Tok, "[")) {
+    if (Init->Ty->Kind != TY_ARRAY)
+      errorTok(Tok, "array index in non-array initializer");
+    // 获取索引值
+    int I = arrayDesignator(&Tok, Tok, Init->Ty);
+    // 递归指派
+    designation(&Tok, Tok, Init->Children[I]);
+    // 进行后续初始化
+    arrayInitializer2(Rest, Tok, Init, I + 1);
+    return;
+  }
+
+  Tok = skip(Tok, "=");
+  // 对该位置进行初始化
+  initializer2(Rest, Tok, Init);
+}
+
 // 计算数组初始化元素个数
 static int countArrayInitElements(Token *Tok, Type *Ty) {
   Initializer *Dummy = newInitializer(Ty->Base, false);
@@ -1050,6 +1085,7 @@ static int countArrayInitElements(Token *Tok, Type *Ty) {
 // arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
 static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
+  bool First = true;
 
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
   if (Init->IsFlexible) {
@@ -1060,8 +1096,18 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 遍历数组
   for (int I = 0; !consumeEnd(Rest, Tok); I++) {
-    if (I > 0)
+    if (!First)
       Tok = skip(Tok, ",");
+    First = false;
+
+    // 如果存在指派器，那么就解析指派
+    if (equal(Tok, "[")) {
+      // 获取最外层指派器的所使用的位置
+      I = arrayDesignator(&Tok, Tok, Init->Ty);
+      // 对该位置进行指派
+      designation(&Tok, Tok, Init->Children[I]);
+      continue;
+    }
 
     // 正常解析元素
     if (I < Init->Ty->ArrayLen)
@@ -1073,7 +1119,8 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // arrayIntializer2 = initializer ("," initializer)* ","?
-static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                              int I) {
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
   if (Init->IsFlexible) {
     int Len = countArrayInitElements(Tok, Init->Ty);
@@ -1081,9 +1128,17 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   }
 
   // 遍历数组
-  for (int I = 0; I < Init->Ty->ArrayLen && !isEnd(Tok); I++) {
+  for (; I < Init->Ty->ArrayLen && !isEnd(Tok); I++) {
+    Token *Start = Tok;
     if (I > 0)
       Tok = skip(Tok, ",");
+
+    // 匹配到了指派器，那么就返回到上层函数进行初始化
+    if (equal(Tok, "[")) {
+      *Rest = Start;
+      return;
+    }
+
     initializer2(&Tok, Tok, Init->Children[I]);
   }
   *Rest = Tok;
@@ -1157,7 +1212,7 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
       arrayInitializer1(Rest, Tok, Init);
     else
       // 不存在括号的情况
-      arrayInitializer2(Rest, Tok, Init);
+      arrayInitializer2(Rest, Tok, Init, 0);
     return;
   }
 
