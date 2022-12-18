@@ -766,12 +766,13 @@ static void runLinker(StringArray *Inputs, char *Output) {
   char *GccLibPath = findGCCLibPath();
 
   if (opt_shared) {
+    strArrayPush(&Arr, format("%s/Scrt1.o", LibPath));
     strArrayPush(&Arr, format("%s/crti.o", LibPath));
     strArrayPush(&Arr, format("%s/crtbeginS.o", GccLibPath));
   } else {
     strArrayPush(&Arr, format("%s/crt1.o", LibPath));
     strArrayPush(&Arr, format("%s/crti.o", LibPath));
-    strArrayPush(&Arr, format("%s/crtbegin.o", GccLibPath));
+    strArrayPush(&Arr, format("%s/crtbeginT.o", GccLibPath));
   }
 
   strArrayPush(&Arr, format("-L%s", GccLibPath));
