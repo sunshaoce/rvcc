@@ -192,6 +192,8 @@ static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr);
 static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
                                int I);
+static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               Member *Mem);
 static void initializer2(Token **Rest, Token *Tok, Initializer *Init);
 static Initializer *initializer(Token **Rest, Token *Tok, Type *Ty,
                                 Type **NewTy);
@@ -1046,7 +1048,26 @@ static int arrayDesignator(Token **Rest, Token *Tok, Type *Ty) {
   return I;
 }
 
-// designation = ("[" const-expr "]")* "="? initializer
+// struct-designator = "." ident
+// 结构体指派器
+static Member *structDesignator(Token **Rest, Token *Tok, Type *Ty) {
+  Tok = skip(Tok, ".");
+  if (Tok->Kind != TK_IDENT)
+    errorTok(Tok, "expected a field designator");
+
+  // 返回所匹配的成员信息
+  for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) {
+    if (Mem->Name->Len == Tok->Len &&
+        !strncmp(Mem->Name->Loc, Tok->Loc, Tok->Len)) {
+      *Rest = Tok->Next;
+      return Mem;
+    }
+  }
+
+  errorTok(Tok, "struct has no such member");
+}
+
+// designation = ("[" const-expr "]" | "." ident)* "="? initializer
 // 进行指派
 static void designation(Token **Rest, Token *Tok, Initializer *Init) {
   // 多层[索引]的解析
@@ -1061,6 +1082,21 @@ static void designation(Token **Rest, Token *Tok, Initializer *Init) {
     arrayInitializer2(Rest, Tok, Init, I + 1);
     return;
   }
+
+  // 多层结构体的解析
+  if (equal(Tok, ".") && Init->Ty->Kind == TY_STRUCT) {
+    // 获取成员
+    Member *Mem = structDesignator(&Tok, Tok, Init->Ty);
+    // 递归指派
+    designation(&Tok, Tok, Init->Children[Mem->Idx]);
+    Init->Expr = NULL;
+    // 进行后续初始化
+    structInitializer2(Rest, Tok, Init, Mem->Next);
+    return;
+  }
+
+  if (equal(Tok, "."))
+    errorTok(Tok, "field name not in struct or union initializer");
 
   if (equal(Tok, "="))
     Tok = Tok->Next;
@@ -1152,7 +1188,7 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init,
       Tok = skip(Tok, ",");
 
     // 匹配到了指派器，那么就返回到上层函数进行初始化
-    if (equal(Tok, "[")) {
+    if (equal(Tok, "[") || equal(Tok, ".")) {
       *Rest = Start;
       return;
     }
@@ -1168,11 +1204,22 @@ static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 
   // 成员变量的链表
   Member *Mem = Init->Ty->Mems;
+  bool First = true;
 
   while (!consumeEnd(Rest, Tok)) {
-    // Mem未指向Init->Ty->Mems，则说明Mem进行过Next的操作，就不是第一个
-    if (Mem != Init->Ty->Mems)
+    // 判断是否为第一个成员
+    if (!First)
       Tok = skip(Tok, ",");
+    First = false;
+
+    // 匹配指派初始化
+    if (equal(Tok, ".")) {
+      // 成员进行指派初始化
+      Mem = structDesignator(&Tok, Tok, Init->Ty);
+      designation(&Tok, Tok, Init->Children[Mem->Idx]);
+      Mem = Mem->Next;
+      continue;
+    }
 
     if (Mem) {
       // 处理成员
@@ -1186,14 +1233,24 @@ static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
 }
 
 // structIntializer2 = initializer ("," initializer)* ","?
-static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
+static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init,
+                               Member *Mem) {
   bool First = true;
 
   // 遍历所有成员变量
-  for (Member *Mem = Init->Ty->Mems; Mem && !isEnd(Tok); Mem = Mem->Next) {
+  for (; Mem && !isEnd(Tok); Mem = Mem->Next) {
+    Token *Start = Tok;
+
     if (!First)
       Tok = skip(Tok, ",");
     First = false;
+
+    // 匹配到了指派器，那么就返回到上层函数进行初始化
+    if (equal(Tok, "[") || equal(Tok, ".")) {
+      *Rest = Start;
+      return;
+    }
+
     initializer2(&Tok, Tok, Init->Children[Mem->Idx]);
   }
   *Rest = Tok;
@@ -1251,7 +1308,7 @@ static void initializer2(Token **Rest, Token *Tok, Initializer *Init) {
       return;
     }
 
-    structInitializer2(Rest, Tok, Init);
+    structInitializer2(Rest, Tok, Init, Init->Ty->Mems);
     return;
   }
 
