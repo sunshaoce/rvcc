@@ -995,6 +995,13 @@ static Token *preprocess2(Token *Tok) {
       continue;
     }
 
+    // 匹配#
+    if (Tok->Kind == TK_PP_NUM) {
+      // 进入到对行标记的读取
+      readLineMarker(&Tok, Tok);
+      continue;
+    }
+
     // 匹配#error
     if (equal(Tok, "error"))
       errorTok(Tok, "error");
