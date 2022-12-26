@@ -400,6 +400,8 @@ bool isIdent2_1(uint32_t C);
 int encodeUTF8(char *Buf, uint32_t C);
 // 将UTF-8的格式解码为unicode字符
 uint32_t decodeUTF8(char **NewPos, char *P);
+// 返回在固定宽度字体中需要多少列来显示给定字符串
+int displayWidth(char *P, int Len);
 
 //
 // 主程序，驱动文件
