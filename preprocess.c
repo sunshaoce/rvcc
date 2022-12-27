@@ -1081,6 +1081,12 @@ static Token *timestampMacro(Token *Tmpl) {
   return newStrToken(Buf, Tmpl);
 }
 
+// 主输入文件名
+static Token *baseFileMacro(Token *Tmpl) {
+  // 将输入文件的名称进行返回
+  return newStrToken(BaseFile, Tmpl);
+}
+
 // 为__DATE__设置为当前日期，例如："May 17 2020"
 static char *formatDate(struct tm *Tm) {
   static char Mon[][4] = {
@@ -1156,6 +1162,8 @@ void initMacros(void) {
   addBuiltin("__COUNTER__", counterMacro);
   // 支持__TIMESTAMP__
   addBuiltin("__TIMESTAMP__", timestampMacro);
+  // 支持__BASE_FILE__
+  addBuiltin("__BASE_FILE__", baseFileMacro);
 
   // 支持__DATE__和__TIME__
   time_t Now = time(NULL);
