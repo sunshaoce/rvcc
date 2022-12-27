@@ -1066,6 +1066,21 @@ static Token *counterMacro(Token *Tmpl) {
   return newNumToken(I++, Tmpl);
 }
 
+// 时间戳描述了当前文件的最后修改时间，示例为：
+// "Fri Jul 24 01:32:50 2020"
+static Token *timestampMacro(Token *Tmpl) {
+  struct stat St;
+  // 如果文件打开失败，则不显示具体时间
+  if (stat(Tmpl->File->Name, &St) != 0)
+    return newStrToken("??? ??? ?? ??:??:?? ????", Tmpl);
+
+  char Buf[30];
+  // 将文件最后修改时间写入Buf
+  ctime_r(&St.st_mtime, Buf);
+  Buf[24] = '\0';
+  return newStrToken(Buf, Tmpl);
+}
+
 // 为__DATE__设置为当前日期，例如："May 17 2020"
 static char *formatDate(struct tm *Tm) {
   static char Mon[][4] = {
@@ -1139,6 +1154,8 @@ void initMacros(void) {
   addBuiltin("__LINE__", lineMacro);
   // 支持__COUNTER__
   addBuiltin("__COUNTER__", counterMacro);
+  // 支持__TIMESTAMP__
+  addBuiltin("__TIMESTAMP__", timestampMacro);
 
   // 支持__DATE__和__TIME__
   time_t Now = time(NULL);
