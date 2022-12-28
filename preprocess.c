@@ -599,6 +599,24 @@ static Token *subst(Token *Tok, MacroArg *Args) {
       continue;
     }
 
+    // 若__VA_ARGS__为空，  则 `,##__VA_ARGS__` 展开为空
+    // 若__VA_ARGS__不为空，则 `,##__VA_ARGS__` 展开为 `,` 和 __VA_ARGS__
+    if (equal(Tok, ",") && equal(Tok->Next, "##")) {
+      // 匹配__VA_ARGS__
+      MacroArg *Arg = findArg(Args, Tok->Next->Next);
+      if (Arg && !strcmp(Arg->Name, "__VA_ARGS__")) {
+        if (Arg->Tok->Kind == TK_EOF) {
+          // 如果__VA_ARGS__为空
+          Tok = Tok->Next->Next->Next;
+        } else {
+          // 若__VA_ARGS__不为空，则展开
+          Cur = Cur->Next = copyToken(Tok);
+          Tok = Tok->Next->Next;
+        }
+        continue;
+      }
+    }
+
     // ##及右边，用于连接终结符
     if (equal(Tok, "##")) {
       if (Cur == &Head)
