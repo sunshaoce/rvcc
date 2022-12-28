@@ -12,6 +12,7 @@ typedef struct MacroArg MacroArg;
 struct MacroArg {
   MacroArg *Next; // 下一个
   char *Name;     // 名称
+  bool IsVaArg;   // 是否为可变参数
   Token *Tok;     // 对应的终结符链表
 };
 
@@ -25,7 +26,7 @@ struct Macro {
   char *Name;              // 名称
   bool IsObjlike;          // 宏变量为真，或者宏函数为假
   MacroParam *Params;      // 宏函数参数
-  bool IsVariadic;         // 是否为可变参数的
+  char *VaArgsName;        // 可变参数
   Token *Body;             // 对应的终结符
   bool Deleted;            // 是否被删除了
   macroHandlerFn *Handler; // 宏处理函数
@@ -368,8 +369,8 @@ static Macro *addMacro(char *Name, bool IsObjlike, Token *Body) {
   return M;
 }
 
-// 读取宏形参
-static MacroParam *readMacroParams(Token **Rest, Token *Tok, bool *IsVariadic) {
+static MacroParam *readMacroParams(Token **Rest, Token *Tok,
+                                   char **VaArgsName) {
   MacroParam Head = {};
   MacroParam *Cur = &Head;
 
@@ -379,7 +380,7 @@ static MacroParam *readMacroParams(Token **Rest, Token *Tok, bool *IsVariadic) {
 
     // 处理可变参数
     if (equal(Tok, "...")) {
-      *IsVariadic = true;
+      *VaArgsName = "__VA_ARGS__";
       // "..."应为最后一个参数
       *Rest = skip(Tok->Next, ")");
       return Head.Next;
@@ -388,6 +389,16 @@ static MacroParam *readMacroParams(Token **Rest, Token *Tok, bool *IsVariadic) {
     // 如果不是标识符报错
     if (Tok->Kind != TK_IDENT)
       errorTok(Tok, "expected an identifier");
+
+    // 处理GNU风格的可变参数
+    if (equal(Tok->Next, "...")) {
+      // 设置参数的名称
+      *VaArgsName = strndup(Tok->Loc, Tok->Len);
+      // "..."应为最后一个参数
+      *Rest = skip(Tok->Next->Next, ")");
+      return Head.Next;
+    }
+
     // 开辟空间
     MacroParam *M = calloc(1, sizeof(MacroParam));
     // 设置名称
@@ -412,14 +423,14 @@ static void readMacroDefinition(Token **Rest, Token *Tok) {
   // 判断是宏变量还是宏函数，括号前没有空格则为宏函数
   if (!Tok->HasSpace && equal(Tok, "(")) {
     // 构造形参
-    bool IsVariadic = false;
-    MacroParam *Params = readMacroParams(&Tok, Tok->Next, &IsVariadic);
+    char *VaArgsName = NULL;
+    MacroParam *Params = readMacroParams(&Tok, Tok->Next, &VaArgsName);
 
     // 增加宏函数
     Macro *M = addMacro(Name, false, copyLine(Rest, Tok));
     M->Params = Params;
     // 传递是否为可变参数的值
-    M->IsVariadic = IsVariadic;
+    M->VaArgsName = VaArgsName;
   } else {
     // 增加宏变量
     addMacro(Name, true, copyLine(Rest, Tok));
@@ -466,7 +477,7 @@ static MacroArg *readMacroArgOne(Token **Rest, Token *Tok, bool ReadRest) {
 
 // 读取宏实参
 static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params,
-                               bool IsVariadic) {
+                               char *VaArgsName) {
   Token *Start = Tok;
   Tok = Tok->Next->Next;
 
@@ -485,7 +496,7 @@ static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params,
   }
 
   // 剩余未匹配的实参，如果为可变参数
-  if (IsVariadic) {
+  if (VaArgsName) {
     MacroArg *Arg;
     // 剩余实参为空
     if (equal(Tok, ")")) {
@@ -498,7 +509,8 @@ static MacroArg *readMacroArgs(Token **Rest, Token *Tok, MacroParam *Params,
         Tok = skip(Tok, ",");
       Arg = readMacroArgOne(&Tok, Tok, true);
     }
-    Arg->Name = "__VA_ARGS__";
+    Arg->Name = VaArgsName;
+    Arg->IsVaArg = true;
     Cur = Cur->Next = Arg;
   }
   // 如果形参没有遍历完，就报错
@@ -604,7 +616,7 @@ static Token *subst(Token *Tok, MacroArg *Args) {
     if (equal(Tok, ",") && equal(Tok->Next, "##")) {
       // 匹配__VA_ARGS__
       MacroArg *Arg = findArg(Args, Tok->Next->Next);
-      if (Arg && !strcmp(Arg->Name, "__VA_ARGS__")) {
+      if (Arg && Arg->IsVaArg) {
         if (Arg->Tok->Kind == TK_EOF) {
           // 如果__VA_ARGS__为空
           Tok = Tok->Next->Next->Next;
@@ -762,7 +774,7 @@ static bool expandMacro(Token **Rest, Token *Tok) {
   // 处理宏函数，并连接到Tok之后
   // 读取宏函数实参，这里是宏函数的隐藏集
   Token *MacroToken = Tok;
-  MacroArg *Args = readMacroArgs(&Tok, Tok, M->Params, M->IsVariadic);
+  MacroArg *Args = readMacroArgs(&Tok, Tok, M->Params, M->VaArgsName);
   // 这里返回的是右括号，这里是宏参数的隐藏集
   Token *RParen = Tok;
   // 宏函数间可能具有不同的隐藏集，新的终结符就不知道应该使用哪个隐藏集。
