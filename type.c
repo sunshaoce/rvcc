@@ -57,6 +57,9 @@ Type *arrayOf(Type *Base, int Len) {
 // 构造枚举类型
 Type *enumType(void) { return newType(TY_ENUM, 4, 4); }
 
+// 构造结构体类型
+Type *structType(void) { return newType(TY_STRUCT, 0, 1); }
+
 // 获取容纳左右部的类型
 static Type *getCommonType(Type *Ty1, Type *Ty2) {
   if (Ty1->Base)

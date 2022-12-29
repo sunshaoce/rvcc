@@ -246,6 +246,8 @@ void addType(Node *Nd);
 Type *arrayOf(Type *Base, int Size);
 // 枚举类型
 Type *enumType(void);
+// 结构体类型
+Type *structType(void);
 // 函数类型
 Type *funcType(Type *ReturnTy);
 
