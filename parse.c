@@ -96,7 +96,7 @@ static Node *CurrentSwitch;
 //             | "_Alignas" ("(" typeName | constExpr ")")
 //             | "signed" | "unsigned"
 //             | structDecl | unionDecl | typedefName
-//             | enumSpecifier
+//             | enumSpecifier | typeofSpecifier
 //             | "const" | "volatile" | "auto" | "register" | "restrict"
 //             | "__restrict" | "__restrict__" | "_Noreturn")+
 // enumSpecifier = ident? "{" enumList? "}"
@@ -190,6 +190,7 @@ static bool isTypename(Token *Tok);
 static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr);
 static Type *typename(Token **Rest, Token *Tok);
 static Type *enumSpecifier(Token **Rest, Token *Tok);
+static Type *typeofSpecifier(Token **Rest, Token *Tok);
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty);
 static Type *declarator(Token **Rest, Token *Tok, Type *Ty);
 static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr);
@@ -482,7 +483,7 @@ static void pushTagScope(Token *Tok, Type *Ty) {
 //             | "_Alignas" ("(" typeName | constExpr ")")
 //             | "signed" | "unsigned"
 //             | structDecl | unionDecl | typedefName
-//             | enumSpecifier
+//             | enumSpecifier | typeofSpecifier
 //             | "const" | "volatile" | "auto" | "register" | "restrict"
 //             | "__restrict" | "__restrict__" | "_Noreturn")+
 // declarator specifier
@@ -554,7 +555,7 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
     // 处理用户定义的类型
     Type *Ty2 = findTypedef(Tok);
     if (equal(Tok, "struct") || equal(Tok, "union") || equal(Tok, "enum") ||
-        Ty2) {
+        equal(Tok, "typeof") || Ty2) {
       if (Counter)
         break;
 
@@ -564,6 +565,8 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
         Ty = unionDecl(&Tok, Tok->Next);
       } else if (equal(Tok, "enum")) {
         Ty = enumSpecifier(&Tok, Tok->Next);
+      } else if (equal(Tok, "typeof")) {
+        Ty = typeofSpecifier(&Tok, Tok->Next);
       } else {
         // 将类型设为类型别名指向的类型
         Ty = Ty2;
@@ -926,6 +929,30 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
 
   if (Tag)
     pushTagScope(Tag, Ty);
+  return Ty;
+}
+
+// typeofSpecifier = "(" (expr | typename) ")"
+// typeof 获取对应的类型
+static Type *typeofSpecifier(Token **Rest, Token *Tok) {
+  // "("
+  Tok = skip(Tok, "(");
+
+  Type *Ty;
+  if (isTypename(Tok)) {
+    // typename
+    // 匹配到相应的类型
+    Ty = typename(&Tok, Tok);
+  } else {
+    // expr
+    // 计算表达式，然后获取表达式的类型
+    Node *Nd = expr(&Tok, Tok);
+    addType(Nd);
+    Ty = Nd->Ty;
+  }
+  // ")"
+  *Rest = skip(Tok, ")");
+  // 将获取的类型进行返回
   return Ty;
 }
 
@@ -1651,6 +1678,7 @@ static bool isTypename(Token *Tok) {
       "static",     "extern",       "_Alignas",  "signed",   "unsigned",
       "const",      "volatile",     "auto",      "register", "restrict",
       "__restrict", "__restrict__", "_Noreturn", "float",    "double",
+      "typeof",
   };
 
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
