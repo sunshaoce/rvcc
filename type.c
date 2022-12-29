@@ -40,10 +40,73 @@ bool isFloNum(Type *Ty) {
 // 判断是否为数字
 bool isNumeric(Type *Ty) { return isInteger(Ty) || isFloNum(Ty); }
 
+// 类型兼容检测函数
+bool isCompatible(Type *T1, Type *T2) {
+  // 类型1、2完全相同，则直接返回true
+  if (T1 == T2)
+    return true;
+
+  // 类型1存在原始类型，则检测该原始类型和类型2的兼容性
+  if (T1->Origin)
+    return isCompatible(T1->Origin, T2);
+
+  // 类型2存在原始类型，则检测该原始类型和类型1的兼容性
+  if (T2->Origin)
+    return isCompatible(T1, T2->Origin);
+
+  // 不存在原始类型时，二类型不相等则直接返回false
+  if (T1->Kind != T2->Kind)
+    return false;
+
+  // 遍历类型1（此时，与类型2相同）
+  switch (T1->Kind) {
+  case TY_CHAR:
+  case TY_SHORT:
+  case TY_INT:
+  case TY_LONG:
+    // 二者 都为 或 都不为 无符号类型，则为真
+    return T1->IsUnsigned == T2->IsUnsigned;
+  case TY_FLOAT:
+  case TY_DOUBLE:
+    // 浮点类型直接返回真
+    return true;
+  case TY_PTR:
+    // 指针，则比较二者所指向的基础类型
+    return isCompatible(T1->Base, T2->Base);
+  case TY_FUNC: {
+    // 比较二者的返回类型，有异则为假
+    if (!isCompatible(T1->ReturnTy, T2->ReturnTy))
+      return false;
+    // 比较二者是否 都为 或 都不为 可变参数函数，有异则为假
+    if (T1->IsVariadic != T2->IsVariadic)
+      return false;
+
+    Type *P1 = T1->Params;
+    Type *P2 = T2->Params;
+    // 遍历两个函数的参数，有异则为假
+    for (; P1 && P2; P1 = P1->Next, P2 = P2->Next)
+      if (!isCompatible(P1, P2))
+        return false;
+    // 比较两个函数的参数个数，有异则为假，无异则为真
+    return P1 == NULL && P2 == NULL;
+  }
+  case TY_ARRAY:
+    // 比较数组的基础类型，有异则为假
+    if (!isCompatible(T1->Base, T2->Base))
+      return false;
+    // 比较数组的个数，有异则为假，无异则为真
+    return T1->ArrayLen < 0 && T2->ArrayLen < 0 && T1->ArrayLen == T2->ArrayLen;
+  default:
+    return false;
+  }
+}
+
 // 复制类型
 Type *copyType(Type *Ty) {
   Type *Ret = calloc(1, sizeof(Type));
   *Ret = *Ty;
+  // 记录原始类型
+  Ret->Origin = Ty;
   return Ret;
 }
 

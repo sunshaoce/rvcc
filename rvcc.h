@@ -310,6 +310,7 @@ struct Type {
   int Size;        // 大小, sizeof返回的值
   int Align;       // 对齐
   bool IsUnsigned; // 是否为无符号的
+  Type *Origin;    // 原始类型，用于兼容性检查
 
   // 指针
   Type *Base; // 指向的类型
@@ -373,6 +374,8 @@ bool isInteger(Type *TY);
 bool isFloNum(Type *Ty);
 // 判断是否为数字
 bool isNumeric(Type *Ty);
+// 判断类型是否兼容
+bool isCompatible(Type *T1, Type *T2);
 // 复制类型
 Type *copyType(Type *Ty);
 // 构建一个指针类型，并指向基类

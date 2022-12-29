@@ -179,6 +179,7 @@ static Node *CurrentSwitch;
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
 //         | num
@@ -3089,6 +3090,7 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
 //         | "_Alignof" unary
+//         | "__builtin_types_compatible_p" "(" typeName, typeName, ")"
 //         | ident
 //         | str
 //         | num
@@ -3141,6 +3143,20 @@ static Node *primary(Token **Rest, Token *Tok) {
     Node *Nd = unary(Rest, Tok->Next);
     addType(Nd);
     return newULong(Nd->Ty->Align, Tok);
+  }
+
+  // "__builtin_types_compatible_p" "(" typeName, typeName, ")"
+  // 匹配内建的类型兼容性函数
+  if (equal(Tok, "__builtin_types_compatible_p")) {
+    Tok = skip(Tok->Next, "(");
+    // 类型1
+    Type *T1 = typename(&Tok, Tok);
+    Tok = skip(Tok, ",");
+    // 类型2
+    Type *T2 = typename(&Tok, Tok);
+    *Rest = skip(Tok, ")");
+    // 返回二者兼容检查函数的结果
+    return newNum(isCompatible(T1, T2), Start);
   }
 
   // ident
