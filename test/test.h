@@ -17,3 +17,6 @@ int sprintf(char *buf, char *fmt, ...);
 
 // [136] 忽略const volatile auto register restrict _Noreturn
 void exit(int n);
+
+// [204] 支持可变参数函数接受任意数量的参数
+int vsprintf(char *buf, char *fmt, void *ap);
