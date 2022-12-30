@@ -1588,6 +1588,10 @@ static void genStmt(Node *Nd) {
   case ND_EXPR_STMT:
     genExpr(Nd->LHS);
     return;
+  case ND_ASM:
+    printLn("  # 插入的ASM代码片段");
+    printLn("  %s", Nd->AsmStr);
+    return;
   default:
     break;
   }
