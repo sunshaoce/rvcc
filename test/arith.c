@@ -148,6 +148,11 @@ int main() {
   // [134] 将指针作为无符号类型进行比较
   ASSERT(1, (void *)0xffffffffffffffff > (void *)0);
 
+  printf("[258] [GNU] 支持?:使用操作数\n");
+  ASSERT(3, 3?:5);
+  ASSERT(5, 0?:5);
+  ASSERT(4, ({ int i = 3; ++i?:10; }));
+
   printf("OK\n");
   return 0;
 }
