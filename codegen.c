@@ -16,7 +16,7 @@ static void genExpr(Node *Nd);
 static void genStmt(Node *Nd);
 
 // 输出字符串到目标文件并换行
-static void printLn(char *Fmt, ...) {
+__attribute__((format(printf, 1, 2))) static void printLn(char *Fmt, ...) {
   va_list VA;
 
   va_start(VA, Fmt);
