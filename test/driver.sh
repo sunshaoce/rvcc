@@ -152,4 +152,41 @@ echo 'int foo(); int main() { foo(); }' > $tmp/inline2.c
 $rvcc -o /dev/null $tmp/inline1.c $tmp/inline2.c
 check inline
 
+# [261] 如果没被引用不生成静态内联函数
+echo 'static inline void f1() {}' | $rvcc -o- -S - | grep -v -q f1:
+check inline
+
+echo 'static inline void f1() {} void foo() { f1(); }' | $rvcc -o- -S - | grep -q f1:
+check inline
+
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $rvcc -o- -S - | grep -q f1:
+check inline
+
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $rvcc -o- -S - | grep -v -q f2:
+check inline
+
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $rvcc -o- -S - | grep -q f1:
+check inline
+
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $rvcc -o- -S - | grep -q f2:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $rvcc -o- -S - | grep -v -q f1:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $rvcc -o- -S - | grep -v -q f2:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $rvcc -o- -S - | grep -q f1:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $rvcc -o- -S - | grep -q f2:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $rvcc -o- -S - | grep -q f1:
+check inline
+
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $rvcc -o- -S - | grep -q f2:
+check inline
+
 echo OK

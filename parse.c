@@ -3283,6 +3283,17 @@ static Node *primary(Token **Rest, Token *Tok) {
     VarScope *S = findVar(Tok);
     *Rest = Tok->Next;
 
+    // 用于static inline函数
+    // 变量存在且为函数
+    if (S && S->Var && S->Var->IsFunction) {
+      if (CurrentFn)
+        // 如果函数体内存在其他函数，则记录引用的其他函数
+        strArrayPush(&CurrentFn->Refs, S->Var->Name);
+      else
+        // 标记为根函数
+        S->Var->IsRoot = true;
+    }
+
     if (S) {
       // 是否为变量
       if (S->Var)
@@ -3377,6 +3388,36 @@ static void resolveGotoLabels(void) {
   Labels = NULL;
 }
 
+// 查找是否存在函数
+static Obj *findFunc(char *Name) {
+  Scope *Sc = Scp;
+  // 递归到最内层域
+  while (Sc->Next)
+    Sc = Sc->Next;
+
+  // 遍历查找函数是否存在
+  for (VarScope *Sc2 = Sc->Vars; Sc2; Sc2 = Sc2->Next)
+    if (!strcmp(Sc2->Name, Name) && Sc2->Var && Sc2->Var->IsFunction)
+      return Sc2->Var;
+  return NULL;
+}
+
+// 将函数标记为存活状态
+static void markLive(Obj *Var) {
+  // 如果不是函数或已存活，直接返回
+  if (!Var->IsFunction || Var->IsLive)
+    return;
+  // 将函数设置为存活状态
+  Var->IsLive = true;
+
+  // 遍历该函数的所有引用过的函数，将它们也设为存活状态
+  for (int I = 0; I < Var->Refs.Len; I++) {
+    Obj *Fn = findFunc(Var->Refs.Data[I]);
+    if (Fn)
+      markLive(Fn);
+  }
+}
+
 // functionDefinition = declspec declarator "{" compoundStmt*
 static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Type *Ty = declarator(&Tok, Tok, BaseTy);
@@ -3388,6 +3429,8 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   Fn->IsDefinition = !consume(&Tok, Tok, ";");
   Fn->IsStatic = Attr->IsStatic || (Attr->IsInline && !Attr->IsExtern);
   Fn->IsInline = Attr->IsInline;
+  // 非static inline函数标记为根函数
+  Fn->IsRoot = !(Fn->IsStatic && Fn->IsInline);
 
   // 判断是否没有函数定义
   if (!Fn->IsDefinition)
@@ -3496,6 +3539,12 @@ Obj *parse(Token *Tok) {
     // 全局变量
     Tok = globalVariable(Tok, BaseTy, &Attr);
   }
+
+  // 遍历所有的函数
+  for (Obj *Var = Globals; Var; Var = Var->Next)
+    // 如果为根函数，则设置为存活状态
+    if (Var->IsRoot)
+      markLive(Var);
 
   return Globals;
 }

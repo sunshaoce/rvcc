@@ -1851,6 +1851,10 @@ void emitText(Obj *Prog) {
     if (!Fn->IsFunction || !Fn->IsDefinition)
       continue;
 
+    // 如果未存活，就不生成static inline函数
+    if (!Fn->IsLive)
+      continue;
+
     if (Fn->IsStatic) {
       printLn("\n  # 定义局部%s函数", Fn->Name);
       printLn("  .local %s", Fn->Name);
