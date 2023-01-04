@@ -39,7 +39,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I"};
+  char *X[] = {"-o", "-I", "-idirafter"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -78,6 +78,9 @@ static void parseArgs(int Argc, char **Argv) {
       // 如果不存在一个参数，则打印出使用说明
       if (!Argv[++I])
         usage(1);
+
+  // 存储-idirafter的路径参数
+  StringArray Idirafter = {};
 
   // 遍历所有传入程序的参数
   for (int I = 1; I < Argc; I++) {
@@ -171,6 +174,13 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-idirafter
+    // 将参数存入Idirafter
+    if (!strcmp(Argv[I], "-idirafter")) {
+      strArrayPush(&Idirafter, Argv[I++]);
+      continue;
+    }
+
     // 忽略多个选项
     if (!strncmp(Argv[I], "-O", 2) || !strncmp(Argv[I], "-W", 2) ||
         !strncmp(Argv[I], "-g", 2) || !strncmp(Argv[I], "-std=", 5) ||
@@ -190,6 +200,10 @@ static void parseArgs(int Argc, char **Argv) {
     // 其他情况则匹配为输入文件
     strArrayPush(&InputPaths, Argv[I]);
   }
+
+  // 将所用Idirafter内的路径，都存入引用路径区中
+  for (int I = 0; I < Idirafter.Len; I++)
+    strArrayPush(&IncludePaths, Idirafter.Data[I]);
 
   // 不存在输入文件时报错
   if (InputPaths.Len == 0)
