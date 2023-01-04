@@ -154,7 +154,7 @@ static void genExpr(Node *Nd) {
     genExpr(Nd->LHS);
     // neg a0, a0是sub a0, x0, a0的别名, 即a0=0-a0
     printLn("  # 对a0值进行取反");
-    printLn("  neg a0, a0");
+    printLn("  neg%s a0, a0", Nd->Ty->Size <= 4 ? "w" : "");
     return;
   // 变量
   case ND_VAR:
@@ -225,22 +225,23 @@ static void genExpr(Node *Nd) {
   pop("a1");
 
   // 生成各个二叉树节点
+  char *Suffix = Nd->LHS->Ty->Kind == TY_LONG || Nd->LHS->Ty->Base ? "" : "w";
   switch (Nd->Kind) {
   case ND_ADD: // + a0=a0+a1
     printLn("  # a0+a1，结果写入a0");
-    printLn("  add a0, a0, a1");
+    printLn("  add%s a0, a0, a1", Suffix);
     return;
   case ND_SUB: // - a0=a0-a1
     printLn("  # a0-a1，结果写入a0");
-    printLn("  sub a0, a0, a1");
+    printLn("  sub%s a0, a0, a1", Suffix);
     return;
   case ND_MUL: // * a0=a0*a1
     printLn("  # a0×a1，结果写入a0");
-    printLn("  mul a0, a0, a1");
+    printLn("  mul%s a0, a0, a1", Suffix);
     return;
   case ND_DIV: // / a0=a0/a1
     printLn("  # a0÷a1，结果写入a0");
-    printLn("  div a0, a0, a1");
+    printLn("  div%s a0, a0, a1", Suffix);
     return;
   case ND_EQ:
   case ND_NE:
