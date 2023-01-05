@@ -598,7 +598,7 @@ static void assignLVarOffsets(Obj *Prog) {
       // 每个变量分配空间
       Offset += Var->Ty->Size;
       // 对齐变量
-      Offset = alignTo(Offset, Var->Ty->Align);
+      Offset = alignTo(Offset, Var->Align);
       // 为每个变量赋一个偏移量，或者说是栈中地址
       Var->Offset = -Offset;
     }
@@ -629,9 +629,9 @@ static void emitData(Obj *Prog) {
     printLn("\n  # 全局段%s", Var->Name);
     printLn("  .globl %s", Var->Name);
     printLn("  # 对齐全局变量");
-    if (!Var->Ty->Align)
+    if (!Var->Align)
       error("Align can not be 0!");
-    printLn("  .align %d", simpleLog2(Var->Ty->Align));
+    printLn("  .align %d", simpleLog2(Var->Align));
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("\n  # 数据段标签");
