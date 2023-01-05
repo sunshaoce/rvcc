@@ -117,9 +117,9 @@ void addType(Node *Nd) {
     addType(N);
 
   switch (Nd->Kind) {
-  // 判断是否Val强制转换为int后依然完整，完整则用int否则用long
+  // 将节点类型设为 int
   case ND_NUM:
-    Nd->Ty = (Nd->Val == (int)Nd->Val) ? TyInt : TyLong;
+    Nd->Ty = TyInt;
     return;
   // 将节点类型设为 节点左部的类型
   case ND_ADD:

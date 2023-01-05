@@ -2632,6 +2632,8 @@ static Node *primary(Token **Rest, Token *Tok) {
   // num
   if (Tok->Kind == TK_NUM) {
     Node *Nd = newNum(Tok->Val, Tok);
+    // 设置类型为终结符的类型
+    Nd->Ty = Tok->Ty;
     *Rest = Tok->Next;
     return Nd;
   }

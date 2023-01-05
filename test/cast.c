@@ -44,6 +44,8 @@ int main() {
 
   ASSERT(-1, ({ typedef short T; T x = 65535; (int)x; }));
   ASSERT(65535, ({ typedef unsigned short T; T x = 65535; (int)x; }));
+  ASSERT(0, (unsigned)18446744073709551615UL < (signed char)(-2L));
+  ASSERT(1, 115 >= -(unsigned)(4294967286UL));
 
   printf("OK\n");
   return 0;
