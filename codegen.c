@@ -1756,6 +1756,13 @@ static void emitData(Obj *Prog) {
                     ? MAX(16, Var->Align)
                     : Var->Align;
     printLn("  .align %d", simpleLog2(Align));
+
+    // 为试探性的全局变量生成指示
+    if (Var->IsTentative) {
+      printLn("  .comm %s, %d, %d", Var->Name, Var->Ty->Size, Align);
+      continue;
+    }
+
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("\n  # 数据段标签");

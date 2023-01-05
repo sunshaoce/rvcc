@@ -3500,6 +3500,9 @@ static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
 
     if (equal(Tok, "="))
       GVarInitializer(&Tok, Tok->Next, Var);
+    else if (!Attr->IsExtern)
+      // 没有初始化器的全局变量设为试探性的
+      Var->IsTentative = true;
   }
   return Tok;
 }
@@ -3513,6 +3516,39 @@ static bool isFunction(Token *Tok) {
   Type Dummy = {};
   Type *Ty = declarator(&Tok, Tok, &Dummy);
   return Ty->Kind == TY_FUNC;
+}
+
+// 删除冗余的试探性定义
+static void scanGlobals(void) {
+  // 新的全局变量的链表
+  Obj Head;
+  Obj *Cur = &Head;
+
+  // 遍历全局变量，删除冗余的试探性定义
+  for (Obj *Var = Globals; Var; Var = Var->Next) {
+    // 不是试探性定义，直接加入到新链表中
+    if (!Var->IsTentative) {
+      Cur = Cur->Next = Var;
+      continue;
+    }
+
+    // 查找其他具有定义的同名标志符
+    // 从头遍历
+    Obj *Var2 = Globals;
+    for (; Var2; Var2 = Var2->Next)
+      // 判断 不是同一个变量，变量具有定义，二者同名
+      if (Var != Var2 && Var2->IsDefinition && !strcmp(Var->Name, Var2->Name))
+        break;
+
+    // 如果Var2为空，说明需要生成代码，加入到新链表中
+    // 如果Var2不为空，说明存在定义，那么就不需要生成试探性定义
+    if (!Var2)
+      Cur = Cur->Next = Var;
+  }
+
+  // 替换为新的全局变量链表
+  Cur->Next = NULL;
+  Globals = Head.Next;
 }
 
 // 语法解析入口函数
@@ -3546,5 +3582,7 @@ Obj *parse(Token *Tok) {
     if (Var->IsRoot)
       markLive(Var);
 
+  // 删除冗余的试探性定义
+  scanGlobals();
   return Globals;
 }

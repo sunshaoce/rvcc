@@ -168,8 +168,9 @@ struct Obj {
   bool IsStatic;     // 是否为文件域内的
 
   // 全局变量
-  char *InitData;  // 用于初始化的数据
-  Relocation *Rel; // 指向其他全局变量的指针
+  bool IsTentative; // 是否为试探性的变量
+  char *InitData;   // 用于初始化的数据
+  Relocation *Rel;  // 指向其他全局变量的指针
 
   // 函数
   bool IsInline; // 内联
