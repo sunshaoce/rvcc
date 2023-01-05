@@ -7,6 +7,8 @@ static char *RVPath = "";
 
 // 引入路径区
 StringArray IncludePaths;
+// common块默认生成
+bool OptFCommon = true;
 
 // -E选项
 static bool OptE;
@@ -117,6 +119,18 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-S
     if (!strcmp(Argv[I], "-S")) {
       OptS = true;
+      continue;
+    }
+
+    // // 解析-fcommon
+    if (!strcmp(Argv[I], "-fcommon")) {
+      OptFCommon = true;
+      continue;
+    }
+
+    // 解析-fno-common
+    if (!strcmp(Argv[I], "-fno-common")) {
+      OptFCommon = false;
       continue;
     }
 
