@@ -1362,7 +1362,45 @@ static void assignLVarOffsets(Obj *Prog) {
     int GP = 0, FP = 0;
     // 寄存器传递的参数
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
-      if (isFloNum(Var->Ty)) {
+      // 读取形参类型
+      Type *Ty = Var->Ty;
+
+      switch (Ty->Kind) {
+      case TY_STRUCT:
+      case TY_UNION:
+        setFloStMemsTy(&Ty, GP, FP);
+
+        // 计算浮点结构体所使用的寄存器
+        // 这里一定寄存器可用，所以不判定是否超过寄存器最大值
+        if (isFloNum(Ty->FSReg1Ty) || isFloNum(Ty->FSReg2Ty)) {
+          Type *Regs[2] = {Ty->FSReg1Ty, Ty->FSReg2Ty};
+          for (int I = 0; I < 2; ++I) {
+            if (isFloNum(Regs[I]))
+              FP++;
+            if (isInteger(Regs[I]))
+              GP++;
+          }
+          continue;
+        }
+
+        // 9～16字节的结构体要用两个寄存器
+        if (8 < Ty->Size && Ty->Size <= 16) {
+          // 如果只剩一个寄存器，那么剩余一半通过栈传递
+          if (GP == GP_MAX - 1)
+            Var->IsHalfByStack = true;
+          if (GP < GP_MAX)
+            GP++;
+        }
+        // 所有字节的结构体都在至少使用了一个寄存器（如果可用）
+        if (GP < GP_MAX) {
+          GP++;
+          continue;
+        }
+
+        // 没使用寄存器的需要栈传递
+        break;
+      case TY_FLOAT:
+      case TY_DOUBLE:
         if (FP < FP_MAX) {
           printLn(" #  FP%d传递浮点变量%s", FP, Var->Name);
           FP++;
@@ -1372,12 +1410,14 @@ static void assignLVarOffsets(Obj *Prog) {
           GP++;
           continue;
         }
-      } else {
+        break;
+      default:
         if (GP < GP_MAX) {
           printLn(" #  GP%d传递整型变量%s", GP, Var->Name);
           GP++;
           continue;
         }
+        break;
       }
 
       // 栈传递
@@ -1386,8 +1426,8 @@ static void assignLVarOffsets(Obj *Prog) {
       ReOffset = alignTo(ReOffset, 8);
       // 为栈传递变量赋一个偏移量，或者说是反向栈地址
       Var->Offset = ReOffset;
-      // 栈传递变量计算反向偏移量
-      ReOffset += Var->Ty->Size;
+      // 栈传递变量计算反向偏移量，传递一半的结构体减去寄存器的部分
+      ReOffset += Var->IsHalfByStack ? Var->Ty->Size - 8 : Var->Ty->Size;
       printLn(" #  栈传递变量%s偏移量%d", Var->Name, Var->Offset);
     }
 
@@ -1395,7 +1435,7 @@ static void assignLVarOffsets(Obj *Prog) {
     // 读取所有变量
     for (Obj *Var = Fn->Locals; Var; Var = Var->Next) {
       // 栈传递的变量的直接跳过
-      if (Var->Offset)
+      if (Var->Offset && !Var->IsHalfByStack)
         continue;
 
       // 每个变量分配空间
@@ -1517,6 +1557,19 @@ static void storeGeneral(int Reg, int Offset, int Size) {
   unreachable();
 }
 
+// 存储结构体到栈内开辟的空间
+static void storeStruct(int Reg, int Offset, int Size) {
+  // t0是结构体的地址，复制t0指向的结构体到栈相应的位置中
+  for (int I = 0; I < Size; I++) {
+    printLn("  lb t0, %d(a%d)", I, Reg);
+
+    printLn("  li t1, %d", Offset + I);
+    printLn("  add t1, fp, t1");
+    printLn("  sb t0, 0(t1)");
+  }
+  return;
+}
+
 // 代码生成入口函数，包含代码块的基础信息
 void emitText(Obj *Prog) {
   // 为每个函数单独生成代码
@@ -1571,12 +1624,74 @@ void emitText(Obj *Prog) {
     // 记录整型寄存器，浮点寄存器使用的数量
     int GP = 0, FP = 0;
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
-      // 不处理栈传递的形参
-      if (Var->Offset > 0)
+      // 不处理栈传递的形参，栈传递一半的结构体除外
+      if (Var->Offset > 0 && !Var->IsHalfByStack)
         continue;
 
+      Type *Ty = Var->Ty;
+
       // 正常传递的形参
-      if (isFloNum(Var->Ty)) {
+      switch (Ty->Kind) {
+      case TY_STRUCT:
+      case TY_UNION:
+        printLn("  # 对寄存器传递的结构体进行压栈");
+
+        // 处理浮点结构体
+        if (isFloNum(Ty->FSReg1Ty) || isFloNum(Ty->FSReg2Ty)) {
+          printLn("  # 浮点结构体的第一部分进行压栈");
+          // 浮点结构体的第一部分，偏移量为0
+          int Sz1 = Var->Ty->FSReg1Ty->Size;
+          if (isFloNum(Ty->FSReg1Ty))
+            storeFloat(FP++, Var->Offset, Sz1);
+          else
+            storeGeneral(GP++, Var->Offset, Sz1);
+
+          // 浮点结构体的第二部分
+          if (Ty->FSReg2Ty->Kind != TY_VOID) {
+            printLn("  # 浮点结构体的第二部分进行压栈");
+            int Sz2 = Ty->FSReg2Ty->Size;
+            // 结构体内偏移量为两个成员间的最大尺寸
+            int Off = MAX(Sz1, Sz2);
+
+            if (isFloNum(Ty->FSReg2Ty))
+              storeFloat(FP++, Var->Offset + Off, Sz2);
+            else
+              storeGeneral(GP++, Var->Offset + Off, Sz2);
+          }
+          break;
+        }
+
+        // 大于16字节的结构体参数，通过访问它的地址，
+        // 将原来位置的结构体复制到栈中
+        if (Ty->Size > 16) {
+          printLn("  # 大于16字节的结构体进行压栈");
+          storeStruct(GP++, Var->Offset, Ty->Size);
+          break;
+        }
+
+        // 一半寄存器、一半栈传递的结构体
+        if (Var->IsHalfByStack) {
+          printLn("  # 一半寄存器、一半栈传递结构体进行压栈");
+          storeGeneral(GP++, Var->Offset, 8);
+          // 拷贝栈传递的一半结构体到当前栈中
+          for (int I = 0; I != Var->Ty->Size - 8; ++I) {
+            printLn("  lb t0, %d(fp)", 16 + I);
+
+            printLn("  li t1, %d", Var->Offset + 8 + I);
+            printLn("  add t1, fp, t1");
+            printLn("  sb t0, 0(t1)");
+          }
+          break;
+        }
+
+        // 处理小于16字节的结构体
+        if (Ty->Size <= 16)
+          storeGeneral(GP++, Var->Offset, MIN(8, Ty->Size));
+        if (Ty->Size > 8)
+          storeGeneral(GP++, Var->Offset + 8, Ty->Size - 8);
+        break;
+      case TY_FLOAT:
+      case TY_DOUBLE:
         // 正常传递的浮点形参
         if (FP < FP_MAX) {
           printLn("  # 将浮点形参%s的寄存器fa%d的值压栈", Var->Name, FP);
@@ -1585,10 +1700,12 @@ void emitText(Obj *Prog) {
           printLn("  # 将浮点形参%s的寄存器a%d的值压栈", Var->Name, GP);
           storeGeneral(GP++, Var->Offset, Var->Ty->Size);
         }
-      } else {
+        break;
+      default:
         // 正常传递的整型形参
         printLn("  # 将整型形参%s的寄存器a%d的值压栈", Var->Name, GP);
         storeGeneral(GP++, Var->Offset, Var->Ty->Size);
+        break;
       }
     }
 
