@@ -169,6 +169,7 @@ struct Obj {
 
   // 全局变量
   bool IsTentative; // 是否为试探性的变量
+  bool IsTLS;       // 是否为线程局部存储，Thread Local Storage
   char *InitData;   // 用于初始化的数据
   Relocation *Rel;  // 指向其他全局变量的指针
 

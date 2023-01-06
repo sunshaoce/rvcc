@@ -1187,7 +1187,6 @@ void initMacros(void) {
   defineMacro("__STDC_HOSTED__", "1");
   defineMacro("__STDC_NO_ATOMICS__", "1");
   defineMacro("__STDC_NO_COMPLEX__", "1");
-  defineMacro("__STDC_NO_THREADS__", "1");
   defineMacro("__STDC_NO_VLA__", "1");
   defineMacro("__STDC_UTF_16__", "1");
   defineMacro("__STDC_UTF_32__", "1");

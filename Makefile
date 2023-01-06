@@ -24,9 +24,9 @@ $(OBJS): rvcc.h
 
 # 测试标签，运行测试
 test/%.exe: rvcc test/%.c
-	./rvcc -Iinclude -Itest -c -o test/$*.o test/$*.c
-	$(CC) -o $@ test/$*.o -xc test/common
-#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.o -xc test/common
+	./rvcc -Iinclude -Itest -I$(RISCV)/sysroot/usr/include -c -o test/$*.o test/$*.c
+	$(CC) -pthread -o $@ test/$*.o -xc test/common
+#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -pthread -static -o $@ test/$*.o -xc test/common
 
 test: $(TESTS)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
@@ -52,7 +52,7 @@ stage2/%.o: rvcc %.c
 stage2/test/%.exe: stage2/rvcc test/%.c
 	mkdir -p stage2/test
 	./stage2/rvcc -Iinclude -Itest -c -o stage2/test/$*.o test/$*.c
-	$(CC) -o $@ stage2/test/$*.o -xc test/common
+	$(CC) -pthread -o $@ stage2/test/$*.o -xc test/common
 
 test-stage2: $(TESTS:test/%=stage2/test/%)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done

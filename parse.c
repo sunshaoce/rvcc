@@ -35,6 +35,7 @@ typedef struct {
   bool IsStatic;  // 是否为文件域内
   bool IsExtern;  // 是否为外部变量
   bool IsInline;  // 是否为内联
+  bool IsTLS;     // 是否为线程局部存储，Thread Local Storage
   int Align;      // 对齐量
 } VarAttr;
 
@@ -94,6 +95,7 @@ static Node *CurrentSwitch;
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
 //             | "typedef" | "static" | "extern" | "inline"
+//             | "_Thread_local" | "__thread"
 //             | "_Alignas" ("(" typeName | constExpr ")")
 //             | "signed" | "unsigned"
 //             | structDecl | unionDecl | typedefName
@@ -488,6 +490,7 @@ static void pushTagScope(Token *Tok, Type *Ty) {
 
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
 //             | "typedef" | "static" | "extern" | "inline"
+//             | "_Thread_local" | "__thread"
 //             | "_Alignas" ("(" typeName | constExpr ")")
 //             | "signed" | "unsigned"
 //             | structDecl | unionDecl | typedefName
@@ -520,7 +523,8 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
   while (isTypename(Tok)) {
     // 处理typedef等关键字
     if (equal(Tok, "typedef") || equal(Tok, "static") || equal(Tok, "extern") ||
-        equal(Tok, "inline")) {
+        equal(Tok, "inline") || equal(Tok, "_Thread_local") ||
+        equal(Tok, "__thread")) {
       if (!Attr)
         errorTok(Tok, "storage class specifier is not allowed in this context");
 
@@ -530,14 +534,16 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
         Attr->IsStatic = true;
       else if (equal(Tok, "extern"))
         Attr->IsExtern = true;
-      else
+      else if (equal(Tok, "inline"))
         Attr->IsInline = true;
+      else
+        Attr->IsTLS = true;
 
-      // typedef不应与static/extern/inline一起使用
+      // typedef不应与static/extern/inline/__thread/_Thread_local一起使用
       if (Attr->IsTypedef &&
-          (Attr->IsStatic || Attr->IsExtern || Attr->IsInline))
-        errorTok(Tok,
-                 "typedef and static/extern/inline may not be used together");
+          (Attr->IsStatic || Attr->IsExtern || Attr->IsInline || Attr->IsTLS))
+        errorTok(Tok, "typedef and static/extern/inline/__thread/_Thread_local "
+                      "may not be used together");
       Tok = Tok->Next;
       continue;
     }
@@ -1686,12 +1692,12 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
   static char *Kw[] = {
-      "void",       "_Bool",        "char",      "short",    "int",
-      "long",       "struct",       "union",     "typedef",  "enum",
-      "static",     "extern",       "_Alignas",  "signed",   "unsigned",
-      "const",      "volatile",     "auto",      "register", "restrict",
-      "__restrict", "__restrict__", "_Noreturn", "float",    "double",
-      "typeof",     "inline",
+      "void",       "_Bool",        "char",          "short",    "int",
+      "long",       "struct",       "union",         "typedef",  "enum",
+      "static",     "extern",       "_Alignas",      "signed",   "unsigned",
+      "const",      "volatile",     "auto",          "register", "restrict",
+      "__restrict", "__restrict__", "_Noreturn",     "float",    "double",
+      "typeof",     "inline",       "_Thread_local", "__thread",
   };
 
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
@@ -3494,13 +3500,15 @@ static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
     Var->IsDefinition = !Attr->IsExtern;
     // 传递是否为static
     Var->IsStatic = Attr->IsStatic;
+    // 传递是否为TLS
+    Var->IsTLS = Attr->IsTLS;
     // 若有设置，则覆盖全局变量的对齐值
     if (Attr->Align)
       Var->Align = Attr->Align;
 
     if (equal(Tok, "="))
       GVarInitializer(&Tok, Tok->Next, Var);
-    else if (!Attr->IsExtern)
+    else if (!Attr->IsExtern && !Attr->IsTLS)
       // 没有初始化器的全局变量设为试探性的
       Var->IsTentative = true;
   }
