@@ -176,12 +176,13 @@ struct Obj {
   Relocation *Rel;  // 指向其他全局变量的指针
 
   // 函数
-  bool IsInline; // 内联
-  Obj *Params;   // 形参
-  Node *Body;    // 函数体
-  Obj *Locals;   // 本地变量
-  Obj *VaArea;   // 可变参数区域
-  int StackSize; // 栈大小
+  bool IsInline;     // 内联
+  Obj *Params;       // 形参
+  Node *Body;        // 函数体
+  Obj *Locals;       // 本地变量
+  Obj *VaArea;       // 可变参数区域
+  Obj *AllocaBottom; // Alloca区域底部
+  int StackSize;     // 栈大小
 
   // 静态内联函数
   bool IsLive;      // 函数是否存活

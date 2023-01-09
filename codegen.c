@@ -867,6 +867,87 @@ static void copyStructMem(void) {
   }
 }
 
+// 开辟Alloca空间
+static void builtinAlloca(void) {
+  // 对齐需要的空间t1到16字节
+  //
+  // 加上15，然后去除最低位的十六进制数
+  printLn("  addi t1, t1, 15");
+  printLn("  andi t1, t1, -16");
+
+  // 注意t2与t1大小不定，仅为示例
+  // ----------------------------- 旧sp（AllocaBottom所存的sp）
+  // - - - - - - - - - - - - - - -
+  //  需要在此开辟大小为t1的Alloca区域
+  // - - - - - - - - - - - - - - -
+  //            ↑
+  //    t2（旧sp和新sp间的距离）
+  //            ↓
+  // ----------------------------- 新sp ← sp
+
+  // 根据t1的值，提升临时区域
+  //
+  // 加载 旧sp 到t2中
+  printLn("  li t0, %d", CurrentFn->AllocaBottom->Offset);
+  printLn("  add t0, fp, t0");
+  printLn("  ld t2, 0(t0)");
+  // t2=旧sp-新sp，将二者的距离存入t2
+  printLn("  sub t2, t2, sp");
+
+  // 保存 新sp 存入a0
+  printLn("  mv a0, sp");
+  // 新sp 开辟（减去）所需要的空间数，结果存入 sp
+  // 并将 新sp开辟空间后的栈顶 同时存入t3
+  printLn("  sub sp, sp, t1");
+  printLn("  mv t3, sp");
+
+  // 注意t2与t1大小不定，仅为示例
+  // ----------------------------- 旧sp（AllocaBottom所存的sp）
+  //              ↑
+  //      t2（旧sp和新sp间的距离）
+  //              ↓
+  // ----------------------------- 新sp  ← a0
+  //              ↑
+  //     t1（Alloca所需要的空间数）
+  //              ↓
+  // ----------------------------- 新新sp ← sp,t3
+
+  // 将 新sp内（底部和顶部间的）数据，复制到 新sp的顶部之上
+  printLn("1:");
+  // t2为0时跳转到标签2，结束复制
+  printLn("beqz t2, 2f");
+  // 将 新sp底部 内容复制到 新sp顶部之上
+  printLn("  lb t0, 0(a0)");
+  printLn("  sb t0, 0(t3)");
+  printLn("  addi a0, a0, 1");
+  printLn("  addi t3, t3, 1");
+  printLn("  addi t2, t2, -1");
+  printLn("  j 1b");
+  printLn("2:");
+
+  // 注意t2与t1大小不定，仅为示例
+  // ------------------------------ 旧sp   a0
+  //             ↑                         ↓
+  //       t1（Alloca区域）
+  //             ↓
+  // ------------------------------ 新sp ← a0
+  //             ↑
+  //  t2（旧sp和新sp间的内容，复制到此）
+  //             ↓
+  // ------------------------------ 新新sp ← sp
+
+  // 移动alloca_bottom指针
+  //
+  // 加载 旧sp 到 a0
+  printLn("  li t0, %d", CurrentFn->AllocaBottom->Offset);
+  printLn("  add t0, fp, t0");
+  printLn("  ld a0, 0(t0)");
+  // 旧sp 减去开辟的空间 t1
+  printLn("  sub a0, a0, t1");
+  // 存储a0到alloca底部地址
+  printLn("sd a0, 0(t0)");
+}
+
 // 生成表达式
 static void genExpr(Node *Nd) {
   // .loc 文件编号 行号
@@ -1113,6 +1194,17 @@ static void genExpr(Node *Nd) {
     return;
   // 函数调用
   case ND_FUNCALL: {
+    // 对alloca函数进行处理
+    if (Nd->LHS->Kind == ND_VAR && !strcmp(Nd->LHS->Var->Name, "alloca")) {
+      // 解析alloca函数的参数，确定开辟空间的字节数
+      genExpr(Nd->Args);
+      // 将需要的字节数存入t1
+      printLn("  mv t1, a0");
+      // 生成Alloca函数汇编
+      builtinAlloca();
+      return;
+    }
+
     // 计算所有参数的值，正向压栈
     // 此处获取到栈传递参数的数量
     int StackArgs = pushArgs(Nd);
@@ -1986,6 +2078,11 @@ void emitText(Obj *Prog) {
     printLn("  # sp腾出StackSize大小的栈空间");
     printLn("  li t0, -%d", Fn->StackSize);
     printLn("  add sp, sp, t0");
+    // Alloca函数
+    printLn("  # 将当前的sp值，存入到Alloca区域的底部");
+    printLn("  li t0, %d", Fn->AllocaBottom->Offset);
+    printLn("  add t0, t0, fp");
+    printLn("  sd sp, 0(t0)");
 
     // 正常传递的形参
     // 记录整型寄存器，浮点寄存器使用的数量
