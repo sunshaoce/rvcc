@@ -132,7 +132,7 @@ void addType(Node *Nd) {
     Nd->Ty = TyInt;
     return;
   case ND_FUNCALL:
-    Nd->Ty = TyLong;
+    Nd->Ty = Nd->FuncType->ReturnTy;
     return;
   // 将节点类型设为 变量的类型
   case ND_VAR:
