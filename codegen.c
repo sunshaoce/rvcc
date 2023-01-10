@@ -97,13 +97,16 @@ static void load(Type *Ty) {
   if (Ty->Kind == TY_ARRAY || Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION)
     return;
 
+  // 添加无符号类型的后缀u
+  char *Suffix = Ty->IsUnsigned ? "u" : "";
+
   printLn("  # 读取a0中存放的地址，得到的值存入a0");
   if (Ty->Size == 1)
-    printLn("  lb a0, 0(a0)");
+    printLn("  lb%s a0, 0(a0)", Suffix);
   else if (Ty->Size == 2)
-    printLn("  lh a0, 0(a0)");
+    printLn("  lh%s a0, 0(a0)", Suffix);
   else if (Ty->Size == 4)
-    printLn("  lw a0, 0(a0)");
+    printLn("  lw%s a0, 0(a0)", Suffix);
   else
     printLn("  ld a0, 0(a0)");
 }
@@ -138,23 +141,27 @@ static void store(Type *Ty) {
 };
 
 // 类型枚举
-enum { I8, I16, I32, I64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64 };
 
 // 获取类型对应的枚举值
 static int getTypeId(Type *Ty) {
   switch (Ty->Kind) {
   case TY_CHAR:
-    return I8;
+    return Ty->IsUnsigned ? U8 : I8;
   case TY_SHORT:
-    return I16;
+    return Ty->IsUnsigned ? U16 : I16;
   case TY_INT:
-    return I32;
+    return Ty->IsUnsigned ? U32 : I32;
+  case TY_LONG:
+    return Ty->IsUnsigned ? U64 : I64;
   default:
-    return I64;
+    return U64;
   }
 }
 
 // 类型映射表
+// 有符号整型转换
+
 // 先逻辑左移N位，再算术右移N位，就实现了将64位有符号数转换为64-N位的有符号数
 static char i64i8[] = "  # 转换为i8类型\n"
                       "  slli a0, a0, 56\n"
@@ -166,16 +173,37 @@ static char i64i32[] = "  # 转换为i32类型\n"
                        "  slli a0, a0, 32\n"
                        "  srai a0, a0, 32";
 
+// 先逻辑左移N位，再逻辑右移N位，就实现了将64位无符号数转换为64-N位的无符号数
+static char i64u8[] = "  # 转换为u8类型\n"
+                      "  slli a0, a0, 56\n"
+                      "  srli a0, a0, 56";
+static char i64u16[] = "  # 转换为u16类型\n"
+                       "  slli a0, a0, 48\n"
+                       "  srli a0, a0, 48";
+static char i64u32[] = "  # 转换为u32类型\n"
+                       "  slli a0, a0, 32\n"
+                       "  srli a0, a0, 32";
+
+// 无符号整型转换
+static char u32i64[] = "  # u32转换为i64类型\n"
+                       "  slli a0, a0, 32\n"
+                       "  srli a0, a0, 32";
+
 // 所有类型转换表
-static char *castTable[10][10] = {
+static char *castTable[11][11] = {
     // clang-format off
 
-    // 被映射到
-    // {i8,  i16,    i32,    i64}
-    {NULL,   NULL,   NULL,   NULL}, // 从i8转换
-    {i64i8,  NULL,   NULL,   NULL}, // 从i16转换
-    {i64i8,  i64i16, NULL,   NULL}, // 从i32转换
-    {i64i8,  i64i16, i64i32, NULL}, // 从i64转换
+  // 被映射到
+  // {i8,  i16,     i32,     i64,     u8,     u16,     u32,     u64}
+  {NULL,   NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i8转换
+  {i64i8,  NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i16转换
+  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i32转换
+  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i64转换
+
+  {i64i8,  NULL,    NULL,    NULL,    NULL,   NULL,    NULL,    NULL},   // 从u8转换
+  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  NULL,    NULL,    NULL},   // 从u16转换
+  {i64i8,  i64i16,  i64i32,  u32i64,  i64u8,  i64u16,  NULL,    u32i64}, // 从u32转换
+  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从u64转换
 
     // clang-format on
 };
@@ -374,13 +402,23 @@ static void genExpr(Node *Nd) {
       return;
     case TY_CHAR:
       printLn("  # 清除char类型的高位");
-      printLn("  slli a0, a0, 56");
-      printLn("  srai a0, a0, 56");
+      if (Nd->Ty->IsUnsigned) {
+        printLn("  slli a0, a0, 56");
+        printLn("  srli a0, a0, 56");
+      } else {
+        printLn("  slli a0, a0, 56");
+        printLn("  srai a0, a0, 56");
+      }
       return;
     case TY_SHORT:
       printLn("  # 清除short类型的高位");
-      printLn("  slli a0, a0, 48");
-      printLn("  srai a0, a0, 48");
+      if (Nd->Ty->IsUnsigned) {
+        printLn("  slli a0, a0, 48");
+        printLn("  srli a0, a0, 48");
+      } else {
+        printLn("  slli a0, a0, 48");
+        printLn("  srai a0, a0, 48");
+      }
       return;
     default:
       break;
@@ -418,11 +456,17 @@ static void genExpr(Node *Nd) {
     return;
   case ND_DIV: // / a0=a0/a1
     printLn("  # a0÷a1，结果写入a0");
-    printLn("  div%s a0, a0, a1", Suffix);
+    if (Nd->Ty->IsUnsigned)
+      printLn("  divu%s a0, a0, a1", Suffix);
+    else
+      printLn("  div%s a0, a0, a1", Suffix);
     return;
   case ND_MOD: // % a0=a0%a1
     printLn("  # a0%%a1，结果写入a0");
-    printLn("  rem%s a0, a0, a1", Suffix);
+    if (Nd->Ty->IsUnsigned)
+      printLn("  remu%s a0, a0, a1", Suffix);
+    else
+      printLn("  rem%s a0, a0, a1", Suffix);
     return;
   case ND_BITAND: // & a0=a0&a1
     printLn("  # a0&a1，结果写入a0");
@@ -438,6 +482,16 @@ static void genExpr(Node *Nd) {
     return;
   case ND_EQ:
   case ND_NE:
+    if (Nd->LHS->Ty->IsUnsigned && Nd->LHS->Ty->Kind == TY_INT) {
+      printLn("  # 左部是U32类型，需要截断");
+      printLn("slli a0, a0, 32");
+      printLn("srli a0, a0, 32");
+    };
+    if (Nd->RHS->Ty->IsUnsigned && Nd->RHS->Ty->Kind == TY_INT) {
+      printLn("  # 右部是U32类型，需要截断");
+      printLn("slli a1, a1, 32");
+      printLn("srli a1, a1, 32");
+    };
     // a0=a0^a1，异或指令
     printLn("  # 判断是否a0%sa1", Nd->Kind == ND_EQ ? "=" : "≠");
     printLn("  xor a0, a0, a1");
@@ -455,13 +509,19 @@ static void genExpr(Node *Nd) {
     return;
   case ND_LT:
     printLn("  # 判断a0<a1");
-    printLn("  slt a0, a0, a1");
+    if (Nd->LHS->Ty->IsUnsigned)
+      printLn("  sltu a0, a0, a1");
+    else
+      printLn("  slt a0, a0, a1");
     return;
   case ND_LE:
     // a0<=a1等价于
     // a0=a1<a0, a0=a0^1
     printLn("  # 判断是否a0≤a1");
-    printLn("  slt a0, a1, a0");
+    if (Nd->LHS->Ty->IsUnsigned)
+      printLn("  sltu a0, a1, a0");
+    else
+      printLn("  slt a0, a1, a0");
     printLn("  xori a0, a0, 1");
     return;
   case ND_SHL:
@@ -470,7 +530,10 @@ static void genExpr(Node *Nd) {
     return;
   case ND_SHR:
     printLn("  # a0算术右移a1位");
-    printLn("  sra%s a0, a0, a1", Suffix);
+    if (Nd->Ty->IsUnsigned)
+      printLn("  srl%s a0, a0, a1", Suffix);
+    else
+      printLn("  sra%s a0, a0, a1", Suffix);
     return;
   default:
     break;

@@ -96,6 +96,13 @@ char *fmt(char *buf, char *fmt, ...) {
 // [129] 设置空参函数调用为可变的
 int nullParam() { return 123; }
 
+// [131] 支持无符号整型
+unsigned char uchar_fn();
+unsigned short ushort_fn();
+
+signed char schar_fn();
+short sshort_fn();
+
 int main() {
   // [25] 支持零参函数定义
   ASSERT(3, ret3());
@@ -162,6 +169,12 @@ int main() {
 
   // [129] 设置空参函数调用为可变的
   ASSERT(123, ({ nullParam(); }));
+
+  // [131] 支持无符号整型
+  ASSERT(251, uchar_fn());
+  ASSERT(65528, ushort_fn());
+  ASSERT(-5, schar_fn());
+  ASSERT(-8, sshort_fn());
 
   printf("OK\n");
   return 0;

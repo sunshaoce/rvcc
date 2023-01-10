@@ -9,6 +9,11 @@ Type *TyShort = &(Type){TY_SHORT, 2, 2};
 Type *TyInt = &(Type){TY_INT, 4, 4};
 Type *TyLong = &(Type){TY_LONG, 8, 8};
 
+Type *TyUChar = &(Type){TY_CHAR, 1, 1, true};
+Type *TyUShort = &(Type){TY_SHORT, 2, 2, true};
+Type *TyUInt = &(Type){TY_INT, 4, 4, true};
+Type *TyULong = &(Type){TY_LONG, 8, 8, true};
+
 static Type *newType(TypeKind Kind, int Size, int Align) {
   Type *Ty = calloc(1, sizeof(Type));
   Ty->Kind = Kind;
@@ -64,9 +69,21 @@ Type *structType(void) { return newType(TY_STRUCT, 0, 1); }
 static Type *getCommonType(Type *Ty1, Type *Ty2) {
   if (Ty1->Base)
     return pointerTo(Ty1->Base);
-  if (Ty1->Size == 8 || Ty2->Size == 8)
-    return TyLong;
-  return TyInt;
+
+  // 小于四字节则为int
+  if (Ty1->Size < 4)
+    Ty1 = TyInt;
+  if (Ty2->Size < 4)
+    Ty2 = TyInt;
+
+  // 选择二者中更大的类型
+  if (Ty1->Size != Ty2->Size)
+    return (Ty1->Size < Ty2->Size) ? Ty2 : Ty1;
+
+  // 优先返回无符号类型（更大）
+  if (Ty2->IsUnsigned)
+    return Ty2;
+  return Ty1;
 }
 
 // 进行常规的算术转换
