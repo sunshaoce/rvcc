@@ -47,6 +47,20 @@ int main() {
   ASSERT(0, (unsigned)18446744073709551615UL < (signed char)(-2L));
   ASSERT(1, 115 >= -(unsigned)(4294967286UL));
 
+  // [140] 支持float和double用于局部变量或类型转换
+  ASSERT(0, (_Bool)0.0);
+  ASSERT(1, (_Bool)0.1);
+  ASSERT(3, (char)3.0);
+  ASSERT(1000, (short)1000.3);
+  ASSERT(3, (int)3.99);
+  ASSERT(2000000000000000, (long)2e15);
+  ASSERT(3, (float)3.5);
+  ASSERT(5, (double)(float)5.5);
+  ASSERT(3, (float)3);
+  ASSERT(3, (double)3);
+  ASSERT(3, (float)3L);
+  ASSERT(3, (double)3L);
+
   printf("OK\n");
   return 0;
 }

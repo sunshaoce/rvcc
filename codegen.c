@@ -95,8 +95,22 @@ static void genAddr(Node *Nd) {
 
 // 加载a0指向的值
 static void load(Type *Ty) {
-  if (Ty->Kind == TY_ARRAY || Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION)
+  switch (Ty->Kind) {
+  case TY_ARRAY:
+  case TY_STRUCT:
+  case TY_UNION:
     return;
+  case TY_FLOAT:
+    printLn("  # 访问a0中存放的地址，取得的值存入fa0");
+    printLn("  flw fa0, 0(a0)");
+    return;
+  case TY_DOUBLE:
+    printLn("  # 访问a0中存放的地址，取得的值存入fa0");
+    printLn("  fld fa0, 0(a0)");
+    return;
+  default:
+    break;
+  }
 
   // 添加无符号类型的后缀u
   char *Suffix = Ty->IsUnsigned ? "u" : "";
@@ -116,7 +130,9 @@ static void load(Type *Ty) {
 static void store(Type *Ty) {
   pop("a1");
 
-  if (Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
+  switch (Ty->Kind) {
+  case TY_STRUCT:
+  case TY_UNION:
     printLn("  # 对%s进行赋值", Ty->Kind == TY_STRUCT ? "结构体" : "联合体");
     for (int I = 0; I < Ty->Size; ++I) {
       printLn("  li t0, %d", I);
@@ -128,6 +144,16 @@ static void store(Type *Ty) {
       printLn("  sb t1, 0(t0)");
     }
     return;
+  case TY_FLOAT:
+    printLn("  # 将fa0的值，写入到a1中存放的地址");
+    printLn("  fsw fa0, 0(a1)");
+    return;
+  case TY_DOUBLE:
+    printLn("  # 将fa0的值，写入到a1中存放的地址");
+    printLn("  fsd fa0, 0(a1)");
+    return;
+  default:
+    break;
   }
 
   printLn("  # 将a0的值，写入到a1中存放的地址");
@@ -142,7 +168,7 @@ static void store(Type *Ty) {
 };
 
 // 类型枚举
-enum { I8, I16, I32, I64, U8, U16, U32, U64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
 
 // 获取类型对应的枚举值
 static int getTypeId(Type *Ty) {
@@ -155,6 +181,10 @@ static int getTypeId(Type *Ty) {
     return Ty->IsUnsigned ? U32 : I32;
   case TY_LONG:
     return Ty->IsUnsigned ? U64 : I64;
+  case TY_FLOAT:
+    return F32;
+  case TY_DOUBLE:
+    return F64;
   default:
     return U64;
   }
@@ -162,6 +192,10 @@ static int getTypeId(Type *Ty) {
 
 // 类型映射表
 // 有符号整型转换
+static char i32f32[] = "  # i32转换为f32类型\n"
+                       "  fcvt.s.w fa0, a0";
+static char i32f64[] = "  # i32转换为f64类型\n"
+                       "  fcvt.d.w fa0, a0";
 
 // 先逻辑左移N位，再算术右移N位，就实现了将64位有符号数转换为64-N位的有符号数
 static char i64i8[] = "  # 转换为i8类型\n"
@@ -185,26 +219,118 @@ static char i64u32[] = "  # 转换为u32类型\n"
                        "  slli a0, a0, 32\n"
                        "  srli a0, a0, 32";
 
+// 有符号整型转换为浮点数
+static char i64f32[] = "  # i64转换为f32类型\n"
+                       "  fcvt.s.l fa0, a0";
+static char i64f64[] = "  # i64转换为f64类型\n"
+                       "  fcvt.d.l fa0, a0";
+
 // 无符号整型转换
+static char u32f32[] = "  # u32转换为f32类型\n"
+                       "  fcvt.s.wu fa0, a0";
+static char u32f64[] = "  # u32转换为f64类型\n"
+                       "  fcvt.d.wu fa0, a0";
+
 static char u32i64[] = "  # u32转换为i64类型\n"
                        "  slli a0, a0, 32\n"
                        "  srli a0, a0, 32";
+
+// 无符号整型转换为浮点数
+static char u64f32[] = "  # u64转换为f32类型\n"
+                       "  fcvt.s.lu fa0, a0";
+static char u64f64[] = "  # u64转换为f64类型\n"
+                       "  fcvt.d.lu fa0, a0";
+
+// 单精度浮点数转换为整型
+static char f32i8[] = "  # f32转换为i8类型\n"
+                      "  fcvt.w.s a0, fa0, rtz\n"
+                      "  slli a0, a0, 56\n"
+                      "  srai a0, a0, 56";
+static char f32i16[] = "  # f32转换为i16类型\n"
+                       "  fcvt.w.s a0, fa0, rtz\n"
+                       "  slli a0, a0, 48\n"
+                       "  srai a0, a0, 48";
+static char f32i32[] = "  # f32转换为i32类型\n"
+                       "  fcvt.w.s a0, fa0, rtz\n"
+                       "  slli a0, a0, 32\n"
+                       "  srai a0, a0, 32";
+static char f32i64[] = "  # f32转换为i64类型\n"
+                       "  fcvt.l.s a0, fa0, rtz";
+
+// 单精度浮点数转换为无符号浮点数
+static char f32u8[] = "  # f32转换为u8类型\n"
+                      "  fcvt.wu.s a0, fa0, rtz\n"
+                      "  slli a0, a0, 56\n"
+                      "  srli a0, a0, 56";
+static char f32u16[] = "  # f32转换为u16类型\n"
+                       "  fcvt.wu.s a0, fa0, rtz\n"
+                       "  slli a0, a0, 48\n"
+                       "  srli a0, a0, 48\n";
+static char f32u32[] = "  # f32转换为u32类型\n"
+                       "  fcvt.wu.s a0, fa0, rtz\n"
+                       "  slli a0, a0, 32\n"
+                       "  srai a0, a0, 32";
+static char f32u64[] = "  # f32转换为u64类型\n"
+                       "  fcvt.lu.s a0, fa0, rtz";
+
+// 单精度转换为双精度浮点数
+static char f32f64[] = "  # f32转换为f64类型\n"
+                       "  fcvt.d.s fa0, fa0";
+
+// 双精度浮点数转换为整型
+static char f64i8[] = "  # f64转换为i8类型\n"
+                      "  fcvt.w.d a0, fa0, rtz\n"
+                      "  slli a0, a0, 56\n"
+                      "  srai a0, a0, 56";
+static char f64i16[] = "  # f64转换为i16类型\n"
+                       "  fcvt.w.d a0, fa0, rtz\n"
+                       "  slli a0, a0, 48\n"
+                       "  srai a0, a0, 48";
+static char f64i32[] = "  # f64转换为i32类型\n"
+                       "  fcvt.w.d a0, fa0, rtz\n"
+                       "  slli a0, a0, 32\n"
+                       "  srai a0, a0, 32";
+static char f64i64[] = "  # f64转换为i64类型\n"
+                       "  fcvt.l.d a0, fa0, rtz";
+
+// 双精度浮点数转换为无符号整型
+static char f64u8[] = "  # f64转换为u8类型\n"
+                      "  fcvt.wu.d a0, fa0, rtz\n"
+                      "  slli a0, a0, 56\n"
+                      "  srli a0, a0, 56";
+static char f64u16[] = "  # f64转换为u16类型\n"
+                       "  fcvt.wu.d a0, fa0, rtz\n"
+                       "  slli a0, a0, 48\n"
+                       "  srli a0, a0, 48";
+static char f64u32[] = "  # f64转换为u32类型\n"
+                       "  fcvt.wu.d a0, fa0, rtz\n"
+                       "  slli a0, a0, 32\n"
+                       "  srai a0, a0, 32";
+static char f64u64[] = "  # f64转换为u64类型\n"
+                       "  fcvt.lu.d a0, fa0, rtz";
+
+// 双精度转换为单精度浮点数
+static char f64f32[] = "  # f64转换为f32类型\n"
+                       "  fcvt.s.d fa0, fa0";
 
 // 所有类型转换表
 static char *castTable[11][11] = {
     // clang-format off
 
   // 被映射到
-  // {i8,  i16,     i32,     i64,     u8,     u16,     u32,     u64}
-  {NULL,   NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i8转换
-  {i64i8,  NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i16转换
-  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i32转换
-  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从i64转换
+  // {i8,  i16,     i32,     i64,     u8,     u16,     u32,     u64,     f32,     f64}
+  {NULL,   NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL,    i32f32,  i32f64}, // 从i8转换
+  {i64i8,  NULL,    NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL,    i32f32,  i32f64}, // 从i16转换
+  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  i64u16,  i64u32,  NULL,    i32f32,  i32f64}, // 从i32转换
+  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL,    i64f32,  i64f64}, // 从i64转换
 
-  {i64i8,  NULL,    NULL,    NULL,    NULL,   NULL,    NULL,    NULL},   // 从u8转换
-  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  NULL,    NULL,    NULL},   // 从u16转换
-  {i64i8,  i64i16,  i64i32,  u32i64,  i64u8,  i64u16,  NULL,    u32i64}, // 从u32转换
-  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL},   // 从u64转换
+  {i64i8,  NULL,    NULL,    NULL,    NULL,   NULL,    NULL,    NULL,    u32f32,  u32f64}, // 从u8转换
+  {i64i8,  i64i16,  NULL,    NULL,    i64u8,  NULL,    NULL,    NULL,    u32f32,  u32f64}, // 从u16转换
+  {i64i8,  i64i16,  i64i32,  u32i64,  i64u8,  i64u16,  NULL,    u32i64,  u32f32,  u32f64}, // 从u32转换
+  {i64i8,  i64i16,  i64i32,  NULL,    i64u8,  i64u16,  i64u32,  NULL,    u64f32,  u64f64}, // 从u64转换
+
+  {f32i8,  f32i16,  f32i32,  f32i64,  f32u8,  f32u16,  f32u32,  f32u64,  NULL,    f32f64}, // 从f32转换
+  {f64i8,  f64i16,  f64i32,  f64i64,  f64u8,  f64u16,  f64u32,  f64u64,  f64f32,  NULL},   // 从f64转换
 
     // clang-format on
 };

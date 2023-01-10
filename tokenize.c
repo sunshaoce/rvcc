@@ -174,7 +174,7 @@ static bool isKeyword(Token *Tok) {
       "switch",       "case",      "default",  "extern",   "_Alignof",
       "_Alignas",     "do",        "signed",   "unsigned", "const",
       "volatile",     "auto",      "register", "restrict", "__restrict",
-      "__restrict__", "_Noreturn",
+      "__restrict__", "_Noreturn", "float",    "double",
   };
 
   // 遍历关键字列表匹配
