@@ -79,6 +79,15 @@ static void genAddr(Node *Nd) {
   switch (Nd->Kind) {
   // 变量
   case ND_VAR:
+    // VLA可变长度数组是局部变量
+    if (Nd->Var->Ty->Kind == TY_VLA) {
+      printLn("  # 为VLA生成局部变量");
+      printLn("  li t0, %d", Nd->Var->Offset);
+      printLn("  add t0, t0, fp");
+      printLn("  ld a0, 0(t0)");
+      return;
+    }
+
     // 局部变量
     if (Nd->Var->IsLocal) { // 偏移量是相对于fp的
       printLn("  # 获取局部变量%s的栈内地址为%d(fp)", Nd->Var->Name,
@@ -150,6 +159,12 @@ static void genAddr(Node *Nd) {
       return;
     }
     break;
+  case ND_VLA_PTR:
+    // VLA的指针
+    printLn("  # 生成VLA的指针");
+    printLn("  li t0, %d", Nd->Var->Offset);
+    printLn("  add a0, t0, fp");
+    return;
   default:
     break;
   }
@@ -164,6 +179,7 @@ static void load(Type *Ty) {
   case TY_STRUCT:
   case TY_UNION:
   case TY_FUNC:
+  case TY_VLA:
     return;
   case TY_FLOAT:
     printLn("  # 访问a0中存放的地址，取得的值存入fa0");
