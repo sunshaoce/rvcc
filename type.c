@@ -135,6 +135,14 @@ Type *arrayOf(Type *Base, int Len) {
   return Ty;
 }
 
+// 构造可变长数组类型
+Type *VLAOf(Type *Base, Node *Len) {
+  Type *Ty = newType(TY_VLA, 8, 8);
+  Ty->Base = Base;
+  Ty->VLALen = Len;
+  return Ty;
+}
+
 // 构造枚举类型
 Type *enumType(void) { return newType(TY_ENUM, 4, 4); }
 
