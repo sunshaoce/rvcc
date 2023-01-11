@@ -220,6 +220,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-l
+    if (!strncmp(Argv[I], "-l", 2)) {
+      strArrayPush(&InputPaths, Argv[I]);
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -697,6 +703,12 @@ int main(int Argc, char **Argv) {
   for (int I = 0; I < InputPaths.Len; I++) {
     // 读取输入文件
     char *Input = InputPaths.Data[I];
+
+    // 链接时搜索指定的库文件
+    if (!strncmp(Input, "-l", 2)) {
+      strArrayPush(&LdArgs, Input);
+      continue;
+    }
 
     // 输出文件
     char *Output;
