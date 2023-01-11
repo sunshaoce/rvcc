@@ -35,6 +35,9 @@ static bool OptHashHashHash;
 // 目标文件的路径
 static char *OptO;
 
+// 链接器额外参数
+static StringArray LdExtraArgs;
+
 // 输入文件名
 char *BaseFile;
 // 输出文件名
@@ -223,6 +226,12 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-l
     if (!strncmp(Argv[I], "-l", 2)) {
       strArrayPush(&InputPaths, Argv[I]);
+      continue;
+    }
+
+    // 解析-s
+    if (!strcmp(Argv[I], "-s")) {
+      strArrayPush(&LdExtraArgs, "-s");
       continue;
     }
 
@@ -624,6 +633,10 @@ static void runLinker(StringArray *Inputs, char *Output) {
     strArrayPush(&Arr, "-L/usr/lib");
     strArrayPush(&Arr, "-L/lib");
   }
+
+  // 链接器额外参数存入到链接器参数中
+  for (int I = 0; I < LdExtraArgs.Len; I++)
+    strArrayPush(&Arr, LdExtraArgs.Data[I]);
 
   // 输入文件，存入到链接器参数中
   for (int I = 0; I < Inputs->Len; I++)
