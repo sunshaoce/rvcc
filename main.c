@@ -10,7 +10,9 @@ typedef enum {
   FILE_NONE, // 空类型
   FILE_C,    // C语言源代码类型
   FILE_ASM,  // 汇编代码类型
-  FILE_OBJ   // 可重定位文件类型
+  FILE_OBJ,  // 可重定位文件类型
+  FILE_AR,   // 静态库文件类型
+  FILE_DSO,  // 动态库文件类型
 } FileType;
 
 // 引入路径区
@@ -657,14 +659,19 @@ static void runLinker(StringArray *Inputs, char *Output) {
 
 // 获取文件的类型
 static FileType getFileType(char *Filename) {
-  // 以.o结尾的文件，解析为空重定位文件类型
-  if (endsWith(Filename, ".o"))
-    return FILE_OBJ;
-
   // 若-x指定了不为空的类型，使用该类型
   if (OptX != FILE_NONE)
     return OptX;
 
+  // 以.a结尾的文件，解析为静态库文件类型
+  if (endsWith(Filename, ".a"))
+    return FILE_AR;
+  // 以.so结尾的文件，解析为动态库文件类型
+  if (endsWith(Filename, ".so"))
+    return FILE_DSO;
+  // 以.o结尾的文件，解析为空重定位文件类型
+  if (endsWith(Filename, ".o"))
+    return FILE_OBJ;
   // 以.c结尾的文件，解析为C语言源代码类型
   if (endsWith(Filename, ".c"))
     return FILE_C;
@@ -738,8 +745,8 @@ int main(int Argc, char **Argv) {
     // 获取输入文件的类型
     FileType Ty = getFileType(Input);
 
-    // 处理.o文件
-    if (Ty == FILE_OBJ) {
+    // 处理.o或.a或.so文件
+    if (Ty == FILE_OBJ || Ty == FILE_AR || Ty == FILE_DSO) {
       // 存入链接器选项中
       strArrayPush(&LdArgs, Input);
       continue;
