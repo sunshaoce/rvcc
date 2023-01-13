@@ -43,6 +43,12 @@ int main() {
   ASSERT(1, _Alignof(char) << 63 >> 63);
   ASSERT(1, ({ char x; _Alignof(x) << 63 >> 63; }));
 
+  printf("[218] 数组超过16字节时，对齐值至少为16字节\n");
+  ASSERT(0, ({ char x[16]; (unsigned long)&x % 16; }));
+  ASSERT(0, ({ char x[17]; (unsigned long)&x % 16; }));
+  ASSERT(0, ({ char x[100]; (unsigned long)&x % 16; }));
+  ASSERT(0, ({ char x[101]; (unsigned long)&x % 16; }));
+
   printf("OK\n");
   return 0;
 }
