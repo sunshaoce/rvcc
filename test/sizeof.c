@@ -115,8 +115,8 @@ int main() {
   ASSERT(4, sizeof(1f/2));
   ASSERT(8, sizeof(1.0/2));
 
-  // [149] 将long double作为double的别名
-  ASSERT(8, sizeof(long double));
+  printf("[280] 支持long double\n");
+  ASSERT(16, sizeof(long double));
 
   printf("[257] [GNU] 支持sizeof函数类型\n");
   ASSERT(1, sizeof(main));

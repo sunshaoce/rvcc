@@ -16,6 +16,7 @@ Type *TyULong = &(Type){TY_LONG, 8, 8, true};
 
 Type *TyFloat = &(Type){TY_FLOAT, 4, 4};
 Type *TyDouble = &(Type){TY_DOUBLE, 8, 8};
+Type *TyLDouble = &(Type){TY_LDOUBLE, 16, 16};
 
 static Type *newType(TypeKind Kind, int Size, int Align) {
   Type *Ty = calloc(1, sizeof(Type));
@@ -34,6 +35,12 @@ bool isInteger(Type *Ty) {
 
 // 判断Type是否为浮点数
 bool isFloNum(Type *Ty) {
+  return Ty->Kind == TY_FLOAT || Ty->Kind == TY_DOUBLE ||
+         Ty->Kind == TY_LDOUBLE;
+}
+
+// 判断是否为float或double，而非long double
+bool isSFloNum(Type *Ty) {
   return Ty->Kind == TY_FLOAT || Ty->Kind == TY_DOUBLE;
 }
 
@@ -68,6 +75,7 @@ bool isCompatible(Type *T1, Type *T2) {
     return T1->IsUnsigned == T2->IsUnsigned;
   case TY_FLOAT:
   case TY_DOUBLE:
+  case TY_LDOUBLE:
     // 浮点类型直接返回真
     return true;
   case TY_PTR:
@@ -161,7 +169,10 @@ static Type *getCommonType(Type *Ty1, Type *Ty2) {
     return pointerTo(Ty2);
 
   // 处理浮点类型
-  // 优先使用double类型
+  // 优先使用long double类型
+  if (Ty1->Kind == TY_LDOUBLE || Ty2->Kind == TY_LDOUBLE)
+    return TyLDouble;
+  // 其次使用double类型
   if (Ty1->Kind == TY_DOUBLE || Ty2->Kind == TY_DOUBLE)
     return TyDouble;
   // 其次使用float类型

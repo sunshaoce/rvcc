@@ -83,14 +83,14 @@ typedef struct {
 // 终结符结构体
 typedef struct Token Token;
 struct Token {
-  TokenKind Kind; // 种类
-  Token *Next;    // 指向下一终结符
-  int64_t Val;    // TK_NUM值
-  double FVal;    // TK_NUM浮点值
-  char *Loc;      // 在解析的字符串内的位置
-  int Len;        // 长度
-  Type *Ty;       // TK_NUM或TK_STR使用
-  char *Str;      // 字符串字面量，包括'\0'
+  TokenKind Kind;   // 种类
+  Token *Next;      // 指向下一终结符
+  int64_t Val;      // TK_NUM值
+  long double FVal; // TK_NUM浮点值
+  char *Loc;        // 在解析的字符串内的位置
+  int Len;          // 长度
+  Type *Ty;         // TK_NUM或TK_STR使用
+  char *Str;        // 字符串字面量，包括'\0'
 
   File *File;       // 源文件位置
   char *Filename;   // 标记的文件名
@@ -294,9 +294,9 @@ struct Node {
   // "asm" 字符串字面量
   char *AsmStr;
 
-  Obj *Var;    // 存储ND_VAR种类的变量
-  int64_t Val; // 存储ND_NUM种类的值
-  double FVal; // 存储ND_NUM种类的浮点值
+  Obj *Var;         // 存储ND_VAR种类的变量
+  int64_t Val;      // 存储ND_NUM种类的值
+  long double FVal; // 存储ND_NUM种类的浮点值
 };
 
 // 类型转换，将表达式的值转换为另一种类型
@@ -312,21 +312,22 @@ Obj *parse(Token *Tok);
 
 // 类型种类
 typedef enum {
-  TY_VOID,   // void类型
-  TY_BOOL,   // _Bool布尔类型
-  TY_CHAR,   // char字符类型
-  TY_SHORT,  // short短整型
-  TY_INT,    // int整型
-  TY_LONG,   // long长整型
-  TY_FLOAT,  // float类型
-  TY_DOUBLE, // double类型
-  TY_ENUM,   // enum枚举类型
-  TY_PTR,    // 指针
-  TY_FUNC,   // 函数
-  TY_ARRAY,  // 数组
-  TY_VLA,    // 可变长度数组，Variable Length Array
-  TY_STRUCT, // 结构体
-  TY_UNION,  // 联合体
+  TY_VOID,    // void类型
+  TY_BOOL,    // _Bool布尔类型
+  TY_CHAR,    // char字符类型
+  TY_SHORT,   // short短整型
+  TY_INT,     // int整型
+  TY_LONG,    // long长整型
+  TY_FLOAT,   // float类型
+  TY_DOUBLE,  // double类型
+  TY_LDOUBLE, // long double类型
+  TY_ENUM,    // enum枚举类型
+  TY_PTR,     // 指针
+  TY_FUNC,    // 函数
+  TY_ARRAY,   // 数组
+  TY_VLA,     // 可变长度数组，variable-length array
+  TY_STRUCT,  // 结构体
+  TY_UNION,   // 联合体
 } TypeKind;
 
 struct Type {
@@ -395,11 +396,14 @@ extern Type *TyULong;
 
 extern Type *TyFloat;
 extern Type *TyDouble;
+extern Type *TyLDouble;
 
 // 判断是否为整型
 bool isInteger(Type *TY);
 // 判断是否为浮点类型
 bool isFloNum(Type *Ty);
+// 判断是否为Float或Double类型
+bool isSFloNum(Type *Ty);
 // 判断是否为数字
 bool isNumeric(Type *Ty);
 // 判断类型是否兼容

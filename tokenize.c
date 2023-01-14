@@ -528,7 +528,7 @@ static void convertPPNumber(Token *Tok) {
 
   // 如果不是整型，那么一定是浮点数
   char *End;
-  double Val = strtod(Tok->Loc, &End);
+  long double Val = strtod(Tok->Loc, &End);
 
   // 处理浮点数后缀
   Type *Ty;
@@ -536,7 +536,7 @@ static void convertPPNumber(Token *Tok) {
     Ty = TyFloat;
     End++;
   } else if (*End == 'l' || *End == 'L') {
-    Ty = TyDouble;
+    Ty = TyLDouble;
     End++;
   } else {
     Ty = TyDouble;
