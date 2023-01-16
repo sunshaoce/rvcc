@@ -1898,8 +1898,23 @@ static void genStmt(Node *Nd) {
 
     printLn("  # 遍历跳转到值等于a0的case标签");
     for (Node *N = Nd->CaseNext; N; N = N->CaseNext) {
-      printLn("  li t0, %ld", N->Val);
-      printLn("  beq a0, t0, %s", N->Label);
+      // 常规case，case范围前后一致
+      if (N->Begin == N->End) {
+        printLn("  li t0, %ld", N->Begin);
+        printLn("  beq a0, t0, %s", N->Label);
+        continue;
+      }
+
+      printLn("  # 处理case范围值：%ld...%ld", N->Begin, N->End);
+      // a0为当前switch中的值
+      printLn("  mv t1, a0");
+      printLn("  li t0, %ld", N->Begin);
+      // t1存储了a0-Begin的值
+      printLn("  sub t1, t1, t0");
+      // t2存储了End-Begin的值
+      printLn("  li t2, %ld", N->End - N->Begin);
+      // 如果0<=t1<=t2，那么就说明在范围内
+      printLn("  bleu t1, t2, %s", N->Label);
     }
 
     if (Nd->DefaultCase) {
