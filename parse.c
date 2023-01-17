@@ -222,8 +222,8 @@ static Node *stmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
 static int64_t eval(Node *Nd);
-static int64_t eval2(Node *Nd, char **Label);
-static int64_t evalRVal(Node *Nd, char **Label);
+static int64_t eval2(Node *Nd, char ***Label);
+static int64_t evalRVal(Node *Nd, char ***Label);
 static double evalDouble(Node *Nd);
 static bool isConstExpr(Node *Nd);
 static Node *assign(Token **Rest, Token *Tok);
@@ -1762,7 +1762,7 @@ static Relocation *writeGVarData(Relocation *Cur, Initializer *Init, Type *Ty,
   }
 
   // 预设使用到的 其他全局变量的名称
-  char *Label = NULL;
+  char **Label = NULL;
   uint64_t Val = eval2(Init->Expr, &Label);
 
   // 如果不存在Label，说明可以直接计算常量表达式的值
@@ -2228,7 +2228,7 @@ static int64_t eval(Node *Nd) { return eval2(Nd, NULL); }
 
 // 计算给定节点的常量表达式计算
 // 常量表达式可以是数字或者是 ptr±n，ptr是指向全局变量的指针，n是偏移量。
-static int64_t eval2(Node *Nd, char **Label) {
+static int64_t eval2(Node *Nd, char ***Label) {
   addType(Nd);
 
   // 处理浮点数
@@ -2304,6 +2304,10 @@ static int64_t eval2(Node *Nd, char **Label) {
   }
   case ND_ADDR:
     return evalRVal(Nd->LHS, Label);
+  case ND_LABEL_VAL:
+    // 将标签值也作为常量
+    *Label = &Nd->UniqueLabel;
+    return 0;
   case ND_MEMBER:
     // 未开辟Label的地址，则表明不是表达式常量
     if (!Label)
@@ -2320,7 +2324,8 @@ static int64_t eval2(Node *Nd, char **Label) {
     // 不能为数组或者函数
     if (Nd->Var->Ty->Kind != TY_ARRAY && Nd->Var->Ty->Kind != TY_FUNC)
       errorTok(Nd->Tok, "invalid initializer");
-    *Label = Nd->Var->Name;
+    // 将标签值也作为常量
+    *Label = &Nd->Var->Name;
     return 0;
   case ND_NUM:
     return Nd->Val;
@@ -2333,13 +2338,14 @@ static int64_t eval2(Node *Nd, char **Label) {
 }
 
 // 计算重定位变量
-static int64_t evalRVal(Node *Nd, char **Label) {
+static int64_t evalRVal(Node *Nd, char ***Label) {
   switch (Nd->Kind) {
   case ND_VAR:
     // 局部变量不能参与全局变量的初始化
     if (Nd->Var->IsLocal)
       errorTok(Nd->Tok, "not a compile-time constant");
-    *Label = Nd->Var->Name;
+    // 将标签值也作为常量
+    *Label = &Nd->Var->Name;
     return 0;
   case ND_DEREF:
     // 直接进入到解引用的地址

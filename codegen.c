@@ -2201,7 +2201,7 @@ static void emitData(Obj *Prog) {
         if (Rel && Rel->Offset == Pos) {
           // 使用其他变量进行初始化
           printLn("  # %s全局变量", Var->Name);
-          printLn("  .quad %s%+ld", Rel->Label, Rel->Addend);
+          printLn("  .quad %s%+ld", *Rel->Label, Rel->Addend);
           Rel = Rel->Next;
           Pos += 8;
         } else {
