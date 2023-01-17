@@ -1566,6 +1566,10 @@ static void genExpr(Node *Nd) {
 
     return;
   }
+  case ND_LABEL_VAL:
+    printLn("  # 加载标签%s的值到a0中", Nd->UniqueLabel);
+    printLn("  la a0, %s", Nd->UniqueLabel);
+    return;
   default:
     break;
   }
@@ -1942,6 +1946,11 @@ static void genStmt(Node *Nd) {
   // goto语句
   case ND_GOTO:
     printLn("  j %s", Nd->UniqueLabel);
+    return;
+  case ND_GOTO_EXPR:
+    printLn("  # GOTO跳转到存储标签的地址");
+    genExpr(Nd->LHS);
+    printLn("  jr a0");
     return;
   // 标签语句
   case ND_LABEL:
