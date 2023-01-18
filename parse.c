@@ -1,23 +1,12 @@
 #include "rvcc.h"
 
 // 局部变量，全局变量，typedef，enum常量的域
-typedef struct VarScope VarScope;
-struct VarScope {
-  VarScope *Next; // 下一变量域
-  char *Name;     // 变量域名称
-  Obj *Var;       // 对应的变量
-  Type *Typedef;  // 别名
-  Type *EnumTy;   // 枚举的类型
-  int EnumVal;    // 枚举的值
-};
-
-// 结构体标签，联合体标签，枚举标签的域
-typedef struct TagScope TagScope;
-struct TagScope {
-  TagScope *Next; // 下一标签域
-  char *Name;     // 域名称
-  Type *Ty;       // 域类型
-};
+typedef struct {
+  Obj *Var;      // 对应的变量
+  Type *Typedef; // 别名
+  Type *EnumTy;  // 枚举的类型
+  int EnumVal;   // 枚举的值
+} VarScope;
 
 // 表示一个块域
 typedef struct Scope Scope;
@@ -25,8 +14,8 @@ struct Scope {
   Scope *Next; // 指向上一级的域
 
   // C有两个域：变量（或类型别名）域，结构体（或联合体，枚举）标签域
-  VarScope *Vars; // 指向当前域内的变量
-  TagScope *Tags; // 指向当前域内的结构体标签
+  HashMap Vars; // 指向当前域内的变量
+  HashMap Tags; // 指向当前域内的结构体标签
 };
 
 // 变量属性
@@ -273,20 +262,22 @@ static void leaveScope(void) { Scp = Scp->Next; }
 // 通过名称，查找一个变量
 static VarScope *findVar(Token *Tok) {
   // 此处越先匹配的域，越深层
-  for (Scope *S = Scp; S; S = S->Next)
+  for (Scope *S = Scp; S; S = S->Next) {
     // 遍历域内的所有变量
-    for (VarScope *S2 = S->Vars; S2; S2 = S2->Next)
-      if (equal(Tok, S2->Name))
-        return S2;
+    VarScope *S2 = hashmapGet2(&S->Vars, Tok->Loc, Tok->Len);
+    if (S2)
+      return S2;
+  }
   return NULL;
 }
 
 // 通过Token查找标签
 static Type *findTag(Token *Tok) {
-  for (Scope *S = Scp; S; S = S->Next)
-    for (TagScope *S2 = S->Tags; S2; S2 = S2->Next)
-      if (equal(Tok, S2->Name))
-        return S2->Ty;
+  for (Scope *S = Scp; S; S = S->Next) {
+    Type *Ty = hashmapGet2(&S->Tags, Tok->Loc, Tok->Len);
+    if (Ty)
+      return Ty;
+  }
   return NULL;
 }
 
@@ -365,10 +356,7 @@ Node *newCast(Node *Expr, Type *Ty) {
 // 将变量存入当前的域中
 static VarScope *pushScope(char *Name) {
   VarScope *S = calloc(1, sizeof(VarScope));
-  S->Name = Name;
-  // 后来的在链表头部
-  S->Next = Scp->Vars;
-  Scp->Vars = S;
+  hashmapPut(&Scp->Vars, Name, S);
   return S;
 }
 
@@ -493,11 +481,7 @@ static Type *findTypedef(Token *Tok) {
 }
 
 static void pushTagScope(Token *Tok, Type *Ty) {
-  TagScope *S = calloc(1, sizeof(TagScope));
-  S->Name = strndup(Tok->Loc, Tok->Len);
-  S->Ty = Ty;
-  S->Next = Scp->Tags;
-  Scp->Tags = S;
+  hashmapPut2(&Scp->Tags, Tok->Loc, Tok->Len, Ty);
 }
 
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
@@ -3070,11 +3054,10 @@ static Type *structUnionDecl(Token **Rest, Token *Tok) {
 
   // 如果是重复定义，就覆盖之前的定义。否则有名称就注册结构体类型
   if (Tag) {
-    for (TagScope *S = Scp->Tags; S; S = S->Next) {
-      if (equal(Tag, S->Name)) {
-        *S->Ty = *Ty;
-        return S->Ty;
-      }
+    Type *Ty2 = hashmapGet2(&Scp->Tags, Tag->Loc, Tag->Len);
+    if (Ty2) {
+      *Ty2 = *Ty;
+      return Ty2;
     }
 
     pushTagScope(Tag, Ty);
@@ -3619,9 +3602,9 @@ static Obj *findFunc(char *Name) {
     Sc = Sc->Next;
 
   // 遍历查找函数是否存在
-  for (VarScope *Sc2 = Sc->Vars; Sc2; Sc2 = Sc2->Next)
-    if (!strcmp(Sc2->Name, Name) && Sc2->Var && Sc2->Var->IsFunction)
-      return Sc2->Var;
+  VarScope *Sc2 = hashmapGet(&Sc->Vars, Name);
+  if (Sc2 && Sc2->Var && Sc2->Var->IsFunction)
+    return Sc2->Var;
   return NULL;
 }
 
