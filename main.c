@@ -256,6 +256,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 哈希表测试
+    if (!strcmp(Argv[I], "-hashmap-test")) {
+      hashmapTest();
+      exit(0);
+    }
+
     // 忽略多个选项
     if (!strncmp(Argv[I], "-O", 2) || !strncmp(Argv[I], "-W", 2) ||
         !strncmp(Argv[I], "-g", 2) || !strncmp(Argv[I], "-std=", 5) ||

@@ -453,6 +453,32 @@ uint32_t decodeUTF8(char **NewPos, char *P);
 int displayWidth(char *P, int Len);
 
 //
+// 哈希表
+//
+
+// 哈希键值对
+typedef struct {
+  char *Key;  // 键
+  int KeyLen; // 键长
+  void *Val;  // 值
+} HashEntry;
+
+// 哈希表
+typedef struct {
+  HashEntry *Buckets; // 桶，存储键值对
+  int Capacity;       // 哈希表最大键值对数量
+  int Used;           // 被使用的键值对数量
+} HashMap;
+
+void *hashmapGet(HashMap *Map, char *Key);
+void *hashmapGet2(HashMap *Map, char *Key, int KeyLen);
+void hashmapPut(HashMap *Map, char *Key, void *Val);
+void hashmapPut2(HashMap *Map, char *Key, int KeyLen, void *Val);
+void hashmapDelete(HashMap *Map, char *Key);
+void hashmapDelete2(HashMap *Map, char *Key, int KeyLen);
+void hashmapTest(void);
+
+//
 // 主程序，驱动文件
 //
 
