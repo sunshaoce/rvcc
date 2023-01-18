@@ -28,6 +28,8 @@ static StringArray OptInclude;
 static bool OptE;
 // -M选项
 static bool OptM;
+// -MD选项
+static bool OptMD;
 // -MP选项
 static bool OptMP;
 // -S选项
@@ -275,6 +277,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-MD
+    if (!strcmp(Argv[I], "-MD")) {
+      OptMD = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -479,6 +487,9 @@ static void printDependencies(void) {
   if (OptMF)
     // 将Make的规则写入`-MF File`的File中
     Path = OptMF;
+  else if (OptMD)
+    // 相当于`-M -MF File.d`，将Make的规则写入.d文件
+    Path = replaceExtn(OptO ? OptO : BaseFile, ".d");
   else if (OptO)
     Path = OptO;
   else
@@ -562,9 +573,10 @@ static void cc1(void) {
   Tok = preprocess(Tok);
 
   // 如果指定了-M，打印出文件的依赖关系
-  if (OptM) {
+  if (OptM || OptMD) {
     printDependencies();
-    return;
+    if (OptM)
+      return;
   }
 
   // 如果指定了-E那么打印出预处理过的C代码
