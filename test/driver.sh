@@ -287,4 +287,11 @@ check -MP
 grep -q '^.*/out3.h:' $tmp/mp
 check -MP
 
+# [292] 支持-MT选项
+# -MT
+$rvcc -MT foo -M -I$tmp $tmp/out.c | grep -q '^foo:'
+check -MT
+$rvcc -MT foo -MT bar -M -I$tmp $tmp/out.c | grep -q '^foo bar:'
+check -MT
+
 echo OK
