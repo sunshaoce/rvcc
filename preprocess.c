@@ -22,18 +22,16 @@ typedef Token *macroHandlerFn(Token *);
 // 定义的宏变量
 typedef struct Macro Macro;
 struct Macro {
-  Macro *Next;             // 下一个
   char *Name;              // 名称
   bool IsObjlike;          // 宏变量为真，或者宏函数为假
   MacroParam *Params;      // 宏函数参数
   char *VaArgsName;        // 可变参数
   Token *Body;             // 对应的终结符
-  bool Deleted;            // 是否被删除了
   macroHandlerFn *Handler; // 宏处理函数
 };
 
 // 宏变量栈
-static Macro *Macros;
+static HashMap Macros;
 
 // #if可以嵌套，所以使用栈来保存嵌套的#if
 typedef struct CondIncl CondIncl;
@@ -350,22 +348,18 @@ static Macro *findMacro(Token *Tok) {
   if (Tok->Kind != TK_IDENT)
     return NULL;
 
-  // 遍历宏变量栈，如果匹配则返回相应的宏变量
-  for (Macro *M = Macros; M; M = M->Next)
-    if (strlen(M->Name) == Tok->Len && !strncmp(M->Name, Tok->Loc, Tok->Len))
-      // 被删除的宏变量返回空
-      return M->Deleted ? NULL : M;
-  return NULL;
+  // 如果匹配则返回相应的宏变量
+  return hashmapGet2(&Macros, Tok->Loc, Tok->Len);
 }
 
 // 新增宏变量，压入宏变量栈中
 static Macro *addMacro(char *Name, bool IsObjlike, Token *Body) {
   Macro *M = calloc(1, sizeof(Macro));
-  M->Next = Macros;
   M->Name = Name;
   M->IsObjlike = IsObjlike;
   M->Body = Body;
-  Macros = M;
+  // 插入宏变量
+  hashmapPut(&Macros, Name, M);
   return M;
 }
 
@@ -1087,10 +1081,8 @@ void defineMacro(char *Name, char *Buf) {
 
 // 取消定义宏
 void undefMacro(char *Name) {
-  // 增加宏
-  Macro *M = addMacro(Name, true, NULL);
   // 将宏变量设为删除状态
-  M->Deleted = true;
+  hashmapDelete(&Macros, Name);
 }
 
 // 增加内建的宏和相应的宏处理函数
