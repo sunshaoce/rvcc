@@ -1783,21 +1783,25 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
 
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
-  static char *Kw[] = {
-      "void",       "_Bool",        "char",          "short",    "int",
-      "long",       "struct",       "union",         "typedef",  "enum",
-      "static",     "extern",       "_Alignas",      "signed",   "unsigned",
-      "const",      "volatile",     "auto",          "register", "restrict",
-      "__restrict", "__restrict__", "_Noreturn",     "float",    "double",
-      "typeof",     "inline",       "_Thread_local", "__thread",
-  };
+  static HashMap Map;
 
-  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
-    if (equal(Tok, Kw[I]))
-      return true;
+  // 哈希表容量为0，说明还没初始化
+  if (Map.Capacity == 0) {
+    static char *Kw[] = {
+        "void",       "_Bool",        "char",          "short",    "int",
+        "long",       "struct",       "union",         "typedef",  "enum",
+        "static",     "extern",       "_Alignas",      "signed",   "unsigned",
+        "const",      "volatile",     "auto",          "register", "restrict",
+        "__restrict", "__restrict__", "_Noreturn",     "float",    "double",
+        "typeof",     "inline",       "_Thread_local", "__thread",
+    };
+
+    // 遍历类型名列表插入哈希表
+    for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); I++)
+      hashmapPut(&Map, Kw[I], (void *)1);
   }
   // 查找是否为类型别名
-  return findTypedef(Tok);
+  return hashmapGet2(&Map, Tok->Loc, Tok->Len) || findTypedef(Tok);
 }
 
 // asmStmt = "asm" ("volatile" | "inline")* "(" stringLiteral ")"
