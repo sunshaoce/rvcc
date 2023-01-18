@@ -28,6 +28,8 @@ static StringArray OptInclude;
 static bool OptE;
 // -M选项
 static bool OptM;
+// -MP选项
+static bool OptMP;
 // -S选项
 static bool OptS;
 // -c选项
@@ -253,6 +255,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-MP
+    if (!strcmp(Argv[I], "-MP")) {
+      OptMP = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -473,6 +481,11 @@ static void printDependencies(void) {
   for (int I = 0; Files[I]; I++)
     fprintf(Out, " \\\n  %s", Files[I]->Name);
   fprintf(Out, "\n\n");
+
+  // 如果指定了-MP，则为头文件生成伪目标
+  if (OptMP)
+    for (int I = 1; Files[I]; I++)
+      fprintf(Out, "%s:\n\n", Files[I]->Name);
 }
 
 // 解析文件，生成终结符流
