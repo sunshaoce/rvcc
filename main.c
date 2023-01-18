@@ -26,6 +26,8 @@ static FileType OptX;
 static StringArray OptInclude;
 // -E选项
 static bool OptE;
+// -M选项
+static bool OptM;
 // -S选项
 static bool OptS;
 // -c选项
@@ -237,6 +239,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-M
+    if (!strcmp(Argv[I], "-M")) {
+      OptM = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -435,6 +443,21 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
+// 输出可用于Make的规则，自动化文件依赖管理
+static void printDependencies(void) {
+  // 输出文件
+  FILE *Out = openFile(OptO ? OptO : "-");
+  fprintf(Out, "%s:", replaceExtn(BaseFile, ".o"));
+
+  // 获取输入文件
+  File **Files = getInputFiles();
+
+  // 遍历输入文件，并将格式化的结果写入输出文件
+  for (int I = 0; Files[I]; I++)
+    fprintf(Out, " \\\n  %s", Files[I]->Name);
+  fprintf(Out, "\n\n");
+}
+
 // 解析文件，生成终结符流
 static Token *mustTokenizeFile(char *Path) {
   Token *Tok = tokenizeFile(Path);
@@ -492,6 +515,12 @@ static void cc1(void) {
 
   // 预处理
   Tok = preprocess(Tok);
+
+  // 如果指定了-M，打印出文件的依赖关系
+  if (OptM) {
+    printDependencies();
+    return;
+  }
 
   // 如果指定了-E那么打印出预处理过的C代码
   if (OptE) {
@@ -770,7 +799,7 @@ int main(int Argc, char **Argv) {
     assert(Ty == FILE_C);
 
     // 只进行解析
-    if (OptE) {
+    if (OptE || OptM) {
       runCC1(Argc, Argv, Input, NULL);
       continue;
     }
