@@ -273,4 +273,10 @@ touch $tmp/out2.h $tmp/out3.h
 $rvcc -M -I$tmp $tmp/out.c | grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h'
 check -M
 
+# [290] 支持-MF选项
+# -MF
+$rvcc -MF $tmp/mf -M -I$tmp $tmp/out.c
+grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h' $tmp/mf
+check -MF
+
 echo OK

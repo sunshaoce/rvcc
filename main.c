@@ -36,6 +36,8 @@ static bool OptC;
 static bool OptCC1;
 // ###选项
 static bool OptHashHashHash;
+// -MF选项
+static char *OptMF;
 // 目标文件的路径
 static char *OptO;
 
@@ -60,7 +62,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include", "-x", "-MF"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -242,6 +244,12 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-M
     if (!strcmp(Argv[I], "-M")) {
       OptM = true;
+      continue;
+    }
+
+    // 解析-MF
+    if (!strcmp(Argv[I], "-MF")) {
+      OptMF = Argv[++I];
       continue;
     }
 
@@ -445,8 +453,17 @@ static void printTokens(Token *Tok) {
 
 // 输出可用于Make的规则，自动化文件依赖管理
 static void printDependencies(void) {
+  char *Path;
+  if (OptMF)
+    // 将Make的规则写入`-MF File`的File中
+    Path = OptMF;
+  else if (OptO)
+    Path = OptO;
+  else
+    Path = "-";
+
   // 输出文件
-  FILE *Out = openFile(OptO ? OptO : "-");
+  FILE *Out = openFile(Path);
   fprintf(Out, "%s:", replaceExtn(BaseFile, ".o"));
 
   // 获取输入文件
