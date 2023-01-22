@@ -308,4 +308,11 @@ $rvcc -c -MD -MF $tmp/md-mf.d -I. $tmp/md2.c
 grep -q -z '^md2.o:.*md2\.c .*/out2\.h' $tmp/md-mf.d
 check -MD
 
+# [294] 支持-MQ选项
+# -MQ
+$rvcc -MQ '$foo' -M -I$tmp $tmp/out.c | grep -q '^$$foo:'
+check -MQ
+$rvcc -MQ '$foo' -MQ bar -M -I$tmp $tmp/out.c | grep -q '^$$foo bar:'
+check -MQ
+
 echo OK
