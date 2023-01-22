@@ -30,6 +30,8 @@ static bool OptE;
 static bool OptM;
 // -MD选项
 static bool OptMD;
+// -MMD选项
+static bool OptMMD;
 // -MP选项
 static bool OptMP;
 // -S选项
@@ -49,6 +51,8 @@ static char *OptO;
 
 // 链接器额外参数
 static StringArray LdExtraArgs;
+// 标准库所引入的路径，用于-MMD选项
+static StringArray StdIncludePaths;
 
 // 输入文件名
 char *BaseFile;
@@ -85,6 +89,10 @@ static void addDefaultIncludePaths(char *Argv0) {
   strArrayPush(&IncludePaths, "/usr/local/include");
   strArrayPush(&IncludePaths, "/usr/include/riscv64-linux-gnu");
   strArrayPush(&IncludePaths, "/usr/include");
+
+  // 为-MMD选项，复制一份标准库引入路径
+  for (int I = 0; I < IncludePaths.Len; I++)
+    strArrayPush(&StdIncludePaths, IncludePaths.Data[I]);
 }
 
 // 定义宏
@@ -327,6 +335,13 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-MMD
+    if (!strcmp(Argv[I], "-MMD")) {
+      // 同时启用-MD选项
+      OptMD = OptMMD = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -525,6 +540,18 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
+// 判断是否为标准库路径
+static bool inStdIncludePath(char *Path) {
+  for (int I = 0; I < StdIncludePaths.Len; I++) {
+    char *Dir = StdIncludePaths.Data[I];
+    int Len = strlen(Dir);
+    // 与库路径相同，且以斜杠结尾
+    if (strncmp(Dir, Path, Len) == 0 && Path[Len] == '/')
+      return true;
+  }
+  return false;
+}
+
 // 输出可用于Make的规则，自动化文件依赖管理
 static void printDependencies(void) {
   char *Path;
@@ -552,15 +579,25 @@ static void printDependencies(void) {
   File **Files = getInputFiles();
 
   // 遍历输入文件，并将格式化的结果写入输出文件
-  for (int I = 0; Files[I]; I++)
+  for (int I = 0; Files[I]; I++) {
+    // 不输出标准库内的文件
+    if (OptMMD && inStdIncludePath(Files[I]->Name))
+      continue;
     fprintf(Out, " \\\n  %s", Files[I]->Name);
+  }
+
   fprintf(Out, "\n\n");
 
   // 如果指定了-MP，则为头文件生成伪目标
-  if (OptMP)
-    for (int I = 1; Files[I]; I++)
+  if (OptMP) {
+    for (int I = 1; Files[I]; I++) {
+      // 不输出标准库内的文件
+      if (OptMMD && inStdIncludePath(Files[I]->Name))
+        continue;
       // 处理头文件中的特殊字符
       fprintf(Out, "%s:\n\n", quoteMakefile(Files[I]->Name));
+    }
+  }
 }
 
 // 解析文件，生成终结符流
