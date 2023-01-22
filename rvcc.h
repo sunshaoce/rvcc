@@ -487,6 +487,8 @@ bool fileExists(char *Path);
 
 // 引入路径区
 extern StringArray IncludePaths;
+// 位置无关代码的标记
+extern bool OptFPIC;
 // 标记是否生成common块
 extern bool OptFCommon;
 extern char *BaseFile;

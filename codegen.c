@@ -121,6 +121,32 @@ static void genAddr(Node *Nd) {
       return;
     }
 
+    // 生成位置无关代码
+    if (OptFPIC) {
+      int C = count();
+      printLn(".Lpcrel_hi%d:", C);
+      // 线程局部变量
+      if (Nd->Var->IsTLS) {
+        printLn("  # 获取PIC中TLS%s的地址", Nd->Var->Name);
+        // 计算TLS高20位地址
+        printLn("  auipc a0, %%tls_gd_pcrel_hi(%s)", Nd->Var->Name);
+        // 计算TLS低12位地址
+        printLn("  addi a0, a0, %%pcrel_lo(.Lpcrel_hi%d)", C);
+        // 获取地址
+        printLn("  call __tls_get_addr@plt");
+        return;
+      }
+
+      // 函数或者全局变量
+      printLn("  # 获取PIC中%s%s的地址",
+              Nd->Ty->Kind == TY_FUNC ? "函数" : "全局变量", Nd->Var->Name);
+      // 高20位地址，存到a0中
+      printLn("  auipc a0, %%got_pcrel_hi(%s)", Nd->Var->Name);
+      // 低12位地址，加到a0中
+      printLn("  ld a0, %%pcrel_lo(.Lpcrel_hi%d)(a0)", C);
+      return;
+    }
+
     // 线程局部变量
     if (Nd->Var->IsTLS) {
       // 计算TLS高20位地址

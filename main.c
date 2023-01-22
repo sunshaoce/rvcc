@@ -19,6 +19,8 @@ typedef enum {
 StringArray IncludePaths;
 // common块默认生成
 bool OptFCommon = true;
+// 位置无关代码的标记
+bool OptFPIC;
 
 // -x选项
 static FileType OptX;
@@ -339,6 +341,12 @@ static void parseArgs(int Argc, char **Argv) {
     if (!strcmp(Argv[I], "-MMD")) {
       // 同时启用-MD选项
       OptMD = OptMMD = true;
+      continue;
+    }
+
+    // 解析-fpic或-fPIC
+    if (!strcmp(Argv[I], "-fpic") || !strcmp(Argv[I], "-fPIC")) {
+      OptFPIC = true;
       continue;
     }
 
