@@ -68,9 +68,11 @@ struct Obj {
 // 函数
 typedef struct Function Function;
 struct Function {
-  Node *Body;    // 函数体
-  Obj *Locals;   // 本地变量
-  int StackSize; // 栈大小
+  Function *Next; // 下一函数
+  char *Name;     // 函数名
+  Node *Body;     // 函数体
+  Obj *Locals;    // 本地变量
+  int StackSize;  // 栈大小
 };
 
 // AST的节点种类
@@ -134,8 +136,9 @@ Function *parse(Token *Tok);
 
 // 类型种类
 typedef enum {
-  TY_INT, // int整型
-  TY_PTR, // 指针
+  TY_INT,  // int整型
+  TY_PTR,  // 指针
+  TY_FUNC, // 函数
 } TypeKind;
 
 struct Type {
@@ -146,6 +149,9 @@ struct Type {
 
   // 变量名
   Token *Name;
+
+  // 函数类型
+  Type *ReturnTy; // 函数返回的类型
 };
 
 // 声明一个全局变量，定义在type.c中。
@@ -157,6 +163,8 @@ bool isInteger(Type *TY);
 Type *pointerTo(Type *Base);
 // 为节点内的所有节点添加类型
 void addType(Node *Nd);
+// 函数类型
+Type *funcType(Type *ReturnTy);
 
 //
 // 语义分析与代码生成
