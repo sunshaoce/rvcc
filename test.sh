@@ -225,5 +225,15 @@ assert 1 'int main() { char x; return sizeof(x); }'
 assert 10 'int main() { char x[10]; return sizeof(x); }'
 assert 1 'int main() { return sub_char(7, 3, 3); } int sub_char(char a, char b, char c) { return a-b-c; }'
 
+# [34] 支持字符串字面量
+assert 0 'int main() { return ""[0]; }'
+assert 1 'int main() { return sizeof(""); }'
+
+assert 97 'int main() { return "abc"[0]; }'
+assert 98 'int main() { return "abc"[1]; }'
+assert 99 'int main() { return "abc"[2]; }'
+assert 0 'int main() { return "abc"[3]; }'
+assert 4 'int main() { return sizeof("abc"); }'
+
 # 如果运行正常未提前退出，程序将显示OK
 echo OK
