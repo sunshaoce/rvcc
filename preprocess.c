@@ -54,6 +54,8 @@ struct Hideset {
 
 // 全局的#if保存栈
 static CondIncl *CondIncls;
+// 记录含有 #pragma once 的文件
+static HashMap PragmaOnce;
 
 // 处理所有的宏和指示
 static Token *preprocess2(Token *Tok);
@@ -907,6 +909,10 @@ static char *detectIncludeGuard(Token *Tok) {
 
 // 引入文件
 static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
+  // 如果含有 "#pragma once"，已经被读取过，那么就跳过文件
+  if (hashmapGet(&PragmaOnce, Path))
+    return Tok;
+
   // 如果引用防护的文件，已经被读取过，那么就跳过文件
   static HashMap IncludeGuards;
   char *GuardName = hashmapGet(&IncludeGuards, Path);
@@ -1114,6 +1120,14 @@ static Token *preprocess2(Token *Tok) {
     if (Tok->Kind == TK_PP_NUM) {
       // 进入到对行标记的读取
       readLineMarker(&Tok, Tok);
+      continue;
+    }
+
+    // 匹配#pragma once
+    if (equal(Tok, "pragma") && equal(Tok->Next, "once")) {
+      // 存储含有#pragma once 的文件名
+      hashmapPut(&PragmaOnce, Tok->File->Name, (void *)1);
+      Tok = skipLine(Tok->Next->Next);
       continue;
     }
 
