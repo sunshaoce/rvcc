@@ -859,12 +859,70 @@ static char *readIncludeFilename(Token **Rest, Token *Tok, bool *IsDquote) {
   return NULL;
 }
 
+// 检测类似于下述的 引用防护（Include Guard） 优化
+//
+//   #ifndef FOO_H
+//   #define FOO_H
+//   ...
+//   #endif
+static char *detectIncludeGuard(Token *Tok) {
+  // 匹配 #ifndef
+  if (!isHash(Tok) || !equal(Tok->Next, "ifndef"))
+    return NULL;
+  Tok = Tok->Next->Next;
+
+  // 判断 FOO_H 是否为标识符
+  if (Tok->Kind != TK_IDENT)
+    return NULL;
+
+  // 复制 FOO_H 作为宏名称
+  char *Macro = strndup(Tok->Loc, Tok->Len);
+  Tok = Tok->Next;
+
+  // 匹配 #define FOO_H
+  if (!isHash(Tok) || !equal(Tok->Next, "define") ||
+      !equal(Tok->Next->Next, Macro))
+    return NULL;
+
+  // 读取到 文件结束
+  while (Tok->Kind != TK_EOF) {
+    // 如果不是 宏 相关的，则前进Tok
+    if (!isHash(Tok)) {
+      Tok = Tok->Next;
+      continue;
+    }
+
+    // 匹配 #endif 以及 TK_EOF ，之后返回宏名称
+    if (equal(Tok->Next, "endif") && Tok->Next->Next->Kind == TK_EOF)
+      return Macro;
+
+    // 匹配 #if 或 #ifdef 或 #ifndef，跳过其中不满足 宏条件 的语句
+    if (equal(Tok, "if") || equal(Tok, "ifdef") || equal(Tok, "ifndef"))
+      Tok = skipCondIncl(Tok->Next);
+    else
+      Tok = Tok->Next;
+  }
+  return NULL;
+}
+
 // 引入文件
 static Token *includeFile(Token *Tok, char *Path, Token *FilenameTok) {
+  // 如果引用防护的文件，已经被读取过，那么就跳过文件
+  static HashMap IncludeGuards;
+  char *GuardName = hashmapGet(&IncludeGuards, Path);
+  if (GuardName && hashmapGet(&Macros, GuardName))
+    return Tok;
+
   // 词法分析文件
   Token *Tok2 = tokenizeFile(Path);
   if (!Tok2)
     errorTok(FilenameTok, "%s: cannot open file: %s", Path, strerror(errno));
+
+  // 判断文件是否使用了 引用防护
+  GuardName = detectIncludeGuard(Tok2);
+  if (GuardName)
+    hashmapPut(&IncludeGuards, Path, GuardName);
+
   return append(Tok2, Tok);
 }
 
