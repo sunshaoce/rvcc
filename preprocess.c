@@ -56,6 +56,8 @@ struct Hideset {
 static CondIncl *CondIncls;
 // 记录含有 #pragma once 的文件
 static HashMap PragmaOnce;
+// 记录 #include_next 开始的索引值
+static int IncludeNextIdx;
 
 // 处理所有的宏和指示
 static Token *preprocess2(Token *Tok);
@@ -813,8 +815,25 @@ char *searchIncludePaths(char *Filename) {
       continue;
     // 将搜索到的结果顺带存入文件搜索的缓存
     hashmapPut(&Cache, Filename, Path);
+    // #include_next应从#include未遍历的路径开始
+    IncludeNextIdx = I + 1;
     return Path;
   }
+  return NULL;
+}
+
+// 搜索 #include_next 的文件路径
+static char *searchIncludeNext(char *Filename) {
+  // #include_next 从 IncludeNextIdx 开始遍历
+  for (; IncludeNextIdx < IncludePaths.Len; IncludeNextIdx++) {
+    // 拼接路径和文件名
+    char *Path = format("%s/%s", IncludePaths.Data[IncludeNextIdx], Filename);
+    // 如果文件存在
+    if (fileExists(Path))
+      // 返回该路径
+      return Path;
+  }
+  // 否则返回空
   return NULL;
 }
 
@@ -1005,6 +1024,18 @@ static Token *preprocess2(Token *Tok) {
 
       // 直接引入文件，搜索引入路径
       char *Path = searchIncludePaths(Filename);
+      Tok = includeFile(Tok, Path ? Path : Filename, Start->Next->Next);
+      continue;
+    }
+
+    // 匹配#include_include
+    if (equal(Tok, "include_next")) {
+      bool Ignore;
+      // 读取引入的文件名
+      char *Filename = readIncludeFilename(&Tok, Tok->Next, &Ignore);
+      // 查找文件名的路径
+      char *Path = searchIncludeNext(Filename);
+      // 引入该路径（若存在时）或文件
       Tok = includeFile(Tok, Path ? Path : Filename, Start->Next->Next);
       continue;
     }
