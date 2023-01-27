@@ -353,4 +353,12 @@ echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
 $rvcc -fPIC -shared -o $tmp/foo.so $tmp/foo.c $tmp/bar.c
 check -shared
 
+# [303] 支持-L选项
+# -L
+echo 'extern int bar; int foo() { return bar; }' > $tmp/foo.c
+$rvcc -fPIC -shared -o $tmp/libfoobar.so $tmp/foo.c
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
+$rvcc -o $tmp/foo $tmp/bar.c -L$tmp -lfoobar
+check -L
+
 echo OK

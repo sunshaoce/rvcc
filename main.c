@@ -387,6 +387,20 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-L
+    if (!strcmp(Argv[I], "-L")) {
+      strArrayPush(&LdExtraArgs, "-L");
+      strArrayPush(&LdExtraArgs, Argv[++I]);
+      continue;
+    }
+
+    // 解析-L
+    if (!strncmp(Argv[I], "-L", 2)) {
+      strArrayPush(&LdExtraArgs, "-L");
+      strArrayPush(&LdExtraArgs, Argv[I] + 2);
+      continue;
+    }
+
     // 哈希表测试
     if (!strcmp(Argv[I], "-hashmap-test")) {
       hashmapTest();
