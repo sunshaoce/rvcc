@@ -10,6 +10,8 @@ StringArray IncludePaths;
 // common块默认生成
 bool OptFCommon = true;
 
+// -include所引入的文件
+static StringArray OptInclude;
 // -E选项
 static bool OptE;
 // -S选项
@@ -41,7 +43,7 @@ static void usage(int Status) {
 
 // 判断需要一个参数的选项，是否具有一个参数
 static bool takeArg(char *Arg) {
-  char *X[] = {"-o", "-I", "-idirafter"};
+  char *X[] = {"-o", "-I", "-idirafter", "-include"};
 
   for (int I = 0; I < sizeof(X) / sizeof(*X); I++)
     if (!strcmp(Arg, X[I]))
@@ -173,6 +175,12 @@ static void parseArgs(int Argc, char **Argv) {
     // 解析-U
     if (!strncmp(Argv[I], "-U", 2)) {
       undefMacro(Argv[I] + 2);
+      continue;
+    }
+
+    // 解析-include
+    if (!strcmp(Argv[I], "-include")) {
+      strArrayPush(&OptInclude, Argv[++I]);
       continue;
     }
 
@@ -364,13 +372,60 @@ static void printTokens(Token *Tok) {
   fprintf(Out, "\n");
 }
 
-// 编译C文件到汇编文件
-static void cc1(void) {
-  // 解析文件，生成终结符流
-  Token *Tok = tokenizeFile(BaseFile);
+// 解析文件，生成终结符流
+static Token *mustTokenizeFile(char *Path) {
+  Token *Tok = tokenizeFile(Path);
   // 终结符流生成失败，对应文件报错
   if (!Tok)
-    error("%s: %s", BaseFile, strerror(errno));
+    error("%s: %s", Path, strerror(errno));
+  return Tok;
+}
+
+// 拼接终结符链表
+static Token *appendTokens(Token *Tok1, Token *Tok2) {
+  // Tok1为空时直接返回Tok2
+  if (!Tok1 || Tok1->Kind == TK_EOF)
+    return Tok2;
+
+  // 链表指针T
+  Token *T = Tok1;
+  // T指向遍历到Tok1链表中最后一个
+  while (T->Next->Kind != TK_EOF)
+    T = T->Next;
+  // T->Next指向Tok2
+  T->Next = Tok2;
+  // 返回拼接好的Tok1
+  return Tok1;
+}
+
+// 编译C文件到汇编文件
+static void cc1(void) {
+  Token *Tok = NULL;
+
+  // 处理-include选项
+  for (int I = 0; I < OptInclude.Len; I++) {
+    // 需要引入的文件
+    char *Incl = OptInclude.Data[I];
+
+    char *Path;
+    if (fileExists(Incl)) {
+      // 如果文件存在，则直接使用路径
+      Path = Incl;
+    } else {
+      // 否则搜索引入路径区
+      Path = searchIncludePaths(Incl);
+      if (!Path)
+        error("-include: %s: %s", Incl, strerror(errno));
+    }
+
+    // 解析文件，生成终结符流
+    Token *Tok2 = mustTokenizeFile(Path);
+    Tok = appendTokens(Tok, Tok2);
+  }
+
+  // 解析文件，生成终结符流
+  Token *Tok2 = mustTokenizeFile(BaseFile);
+  Tok = appendTokens(Tok, Tok2);
 
   // 预处理
   Tok = preprocess(Tok);
