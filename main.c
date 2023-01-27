@@ -44,6 +44,8 @@ static bool OptC;
 static bool OptCC1;
 // ###选项
 static bool OptHashHashHash;
+//-static选项
+static bool OptStatic;
 // -MF选项
 static char *OptMF;
 // -MT选项
@@ -366,6 +368,13 @@ static void parseArgs(int Argc, char **Argv) {
     // 将参数存入Idirafter
     if (!strcmp(Argv[I], "-idirafter")) {
       strArrayPush(&Idirafter, Argv[I++]);
+      continue;
+    }
+
+    // 解析-static
+    if (!strcmp(Argv[I], "-static")) {
+      OptStatic = true;
+      strArrayPush(&LdExtraArgs, "-static");
       continue;
     }
 
@@ -784,13 +793,15 @@ static void runLinker(StringArray *Inputs, char *Output) {
   strArrayPush(&Arr, Output);
   strArrayPush(&Arr, "-m");
   strArrayPush(&Arr, "elf64lriscv");
-  strArrayPush(&Arr, "-dynamic-linker");
+  if (!OptStatic) {
+    strArrayPush(&Arr, "-dynamic-linker");
 
-  char *LP64D =
-      strlen(RVPath)
-          ? format("%s/sysroot/lib/ld-linux-riscv64-lp64d.so.1", RVPath)
-          : "/lib/ld-linux-riscv64-lp64d.so.1";
-  strArrayPush(&Arr, LP64D);
+    char *LP64D =
+        strlen(RVPath)
+            ? format("%s/sysroot/lib/ld-linux-riscv64-lp64d.so.1", RVPath)
+            : "/lib/ld-linux-riscv64-lp64d.so.1";
+    strArrayPush(&Arr, LP64D);
+  }
 
   char *LibPath = findLibPath();
   char *GccLibPath = findGCCLibPath();
@@ -799,8 +810,7 @@ static void runLinker(StringArray *Inputs, char *Output) {
   strArrayPush(&Arr, format("%s/crti.o", LibPath));
   strArrayPush(&Arr, format("%s/crtbegin.o", GccLibPath));
   strArrayPush(&Arr, format("-L%s", GccLibPath));
-  strArrayPush(&Arr, format("-L%s", LibPath));
-  strArrayPush(&Arr, format("-L%s/..", LibPath));
+
   if (strlen(RVPath)) {
     strArrayPush(&Arr, format("-L%s/sysroot/usr/lib64", RVPath));
     strArrayPush(&Arr, format("-L%s/sysroot/lib64", RVPath));
@@ -830,11 +840,19 @@ static void runLinker(StringArray *Inputs, char *Output) {
   for (int I = 0; I < Inputs->Len; I++)
     strArrayPush(&Arr, Inputs->Data[I]);
 
-  strArrayPush(&Arr, "-lc");
-  strArrayPush(&Arr, "-lgcc");
-  strArrayPush(&Arr, "--as-needed");
-  strArrayPush(&Arr, "-lgcc_s");
-  strArrayPush(&Arr, "--no-as-needed");
+  if (OptStatic) {
+    strArrayPush(&Arr, "--start-group");
+    strArrayPush(&Arr, "-lgcc");
+    strArrayPush(&Arr, "-lgcc_eh");
+    strArrayPush(&Arr, "-lc");
+    strArrayPush(&Arr, "--end-group");
+  } else {
+    strArrayPush(&Arr, "-lc");
+    strArrayPush(&Arr, "-lgcc");
+    strArrayPush(&Arr, "--as-needed");
+    strArrayPush(&Arr, "-lgcc_s");
+    strArrayPush(&Arr, "--no-as-needed");
+  }
   strArrayPush(&Arr, format("%s/crtend.o", GccLibPath));
   strArrayPush(&Arr, format("%s/crtn.o", LibPath));
   strArrayPush(&Arr, NULL);
