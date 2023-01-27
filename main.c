@@ -171,6 +171,18 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 忽略多个选项
+    if (!strncmp(Argv[I], "-O", 2) || !strncmp(Argv[I], "-W", 2) ||
+        !strncmp(Argv[I], "-g", 2) || !strncmp(Argv[I], "-std=", 5) ||
+        !strcmp(Argv[I], "-ffreestanding") ||
+        !strcmp(Argv[I], "-fno-builtin") ||
+        !strcmp(Argv[I], "-fno-omit-frame-pointer") ||
+        !strcmp(Argv[I], "-fno-stack-protector") ||
+        !strcmp(Argv[I], "-fno-strict-aliasing") || !strcmp(Argv[I], "-m64") ||
+        !strcmp(Argv[I], "-mno-red-zone") || !strcmp(Argv[I], "-w") ||
+        !strcmp(Argv[I], "-march=native"))
+      continue;
+
     // 解析为-的参数
     if (Argv[I][0] == '-' && Argv[I][1] != '\0')
       error("unknown argument: %s", Argv[I]);
