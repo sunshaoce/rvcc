@@ -361,4 +361,16 @@ echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
 $rvcc -o $tmp/foo $tmp/bar.c -L$tmp -lfoobar
 check -L
 
+# [304] 支持-Wl,选项
+# -Wl,
+echo 'int foo() {}' | $rvcc -c -o $tmp/foo.o -xc -
+echo 'int foo() {}' | $rvcc -c -o $tmp/bar.o -xc -
+echo 'int main() {}' | $rvcc -c -o $tmp/baz.o -xc -
+if [ "$RISCV" = "" ];then
+  cc -Wl,-z,muldefs,--gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
+else
+  $RISCV/bin/riscv64-unknown-linux-gnu-gcc -Wl,-z,muldefs,--gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
+fi
+check -Wl,
+
 echo OK

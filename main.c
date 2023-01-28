@@ -282,8 +282,8 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
-    // 解析-l
-    if (!strncmp(Argv[I], "-l", 2)) {
+    // 解析-l、-Wl,
+    if (!strncmp(Argv[I], "-l", 2) || !strncmp(Argv[I], "-Wl,", 4)) {
       strArrayPush(&InputPaths, Argv[I]);
       continue;
     }
@@ -964,6 +964,21 @@ int main(int Argc, char **Argv) {
     // 链接时搜索指定的库文件
     if (!strncmp(Input, "-l", 2)) {
       strArrayPush(&LdArgs, Input);
+      continue;
+    }
+
+    // 匹配到 -Wl, 将后续参数存入链接器选项
+    if (!strncmp(Input, "-Wl,", 4)) {
+      // 以 , 分割开的参数字符串
+      char *S = strdup(Input + 4);
+      // 以 , 分割字符串，并返回一个参数
+      char *Arg = strtok(S, ",");
+      // 循环遍历剩余的参数
+      while (Arg) {
+        // 加入到链接器参数
+        strArrayPush(&LdArgs, Arg);
+        Arg = strtok(NULL, ",");
+      }
       continue;
     }
 
