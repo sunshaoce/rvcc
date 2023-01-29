@@ -3500,6 +3500,17 @@ static Node *primary(Token **Rest, Token *Tok) {
     return Nd;
   }
 
+  // 原子交换
+  if (equal(Tok, "__builtin_atomic_exchange")) {
+    Node *Nd = newNode(ND_EXCH, Tok);
+    Tok = skip(Tok->Next, "(");
+    Nd->LHS = assign(&Tok, Tok);
+    Tok = skip(Tok, ",");
+    Nd->RHS = assign(&Tok, Tok);
+    *Rest = skip(Tok, ")");
+    return Nd;
+  }
+
   // ident
   if (Tok->Kind == TK_IDENT) {
     // 查找变量（或枚举常量）

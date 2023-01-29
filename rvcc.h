@@ -249,6 +249,7 @@ typedef enum {
   ND_MEMZERO,   // 栈中变量清零
   ND_ASM,       // "asm"汇编
   ND_CAS,       // 原子比较交换
+  ND_EXCH,      // 原子交换
 } NodeKind;
 
 // AST中二叉树节点

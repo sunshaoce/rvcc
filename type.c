@@ -354,6 +354,12 @@ void addType(Node *Nd) {
     if (Nd->CasOld->Ty->Kind != TY_PTR)
       errorTok(Nd->CasOld->Tok, "pointer expected");
     return;
+  // 节点类型为 左部所指向的类型
+  case ND_EXCH:
+    if (Nd->LHS->Ty->Kind != TY_PTR)
+      errorTok(Nd->CasAddr->Tok, "pointer expected");
+    Nd->Ty = Nd->LHS->Ty->Base;
+    return;
   default:
     break;
   }

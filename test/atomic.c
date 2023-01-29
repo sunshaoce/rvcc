@@ -39,6 +39,10 @@ int main() {
   printf("[307] 支持原子比较交换操作\n");
   ASSERT(3 * 1000 * 1000, add_millions());
 
+  printf("[308] 支持原子交换操作\n");
+  ASSERT(3, ({ int x=3; atomic_exchange(&x, 5); }));
+  ASSERT(5, ({ int x=3; atomic_exchange(&x, 5); x; }));
+
   printf("OK\n");
   return 0;
 }
