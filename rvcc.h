@@ -368,6 +368,7 @@ struct Type {
   // 结构体
   Member *Mems;
   bool IsFlexible; // 是否为灵活的
+  bool IsPacked;   // 是否是紧凑的（不进行对齐）
   Type *FSReg1Ty;  // 浮点结构体的对应寄存器
   Type *FSReg2Ty;  // 浮点结构体的对应寄存器
 
