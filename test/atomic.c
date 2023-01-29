@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
-int incr(int *p) {
+static int incr(_Atomic int *p) {
   int oldval = *p;
   int newval;
   do {
@@ -11,33 +11,50 @@ int incr(int *p) {
   return newval;
 }
 
-static int add(void *arg) {
-  int *x = arg;
+static int add1(void *arg) {
+  _Atomic int *x = arg;
   for (int i = 0; i < 1000 * 1000; i++)
     incr(x);
   return 0;
 }
 
+static int add2(void *arg) {
+  _Atomic int *x = arg;
+  for (int i = 0; i < 1000 * 1000; i++)
+    (*x)++;
+  return 0;
+}
+
+static int add3(void *arg) {
+  _Atomic int *x = arg;
+  for (int i = 0; i < 1000 * 1000; i++)
+    *x += 5;
+  return 0;
+}
+
 static int add_millions(void) {
-  int x = 0;
+  _Atomic int x = 0;
 
   pthread_t thr1;
   pthread_t thr2;
+  pthread_t thr3;
 
-  pthread_create(&thr1, NULL, add, &x);
-  pthread_create(&thr2, NULL, add, &x);
+  pthread_create(&thr1, NULL, add1, &x);
+  pthread_create(&thr2, NULL, add2, &x);
+  pthread_create(&thr3, NULL, add3, &x);
 
   for (int i = 0; i < 1000 * 1000; i++)
-    incr(&x);
+    x--;
 
   pthread_join(thr1, NULL);
   pthread_join(thr2, NULL);
+  pthread_join(thr3, NULL);
   return x;
 }
 
 int main() {
-  printf("[307] 支持原子比较交换操作\n");
-  ASSERT(3 * 1000 * 1000, add_millions());
+  printf("[309] 支持_Atomic及一些原子操作\n");
+  ASSERT(6 * 1000 * 1000, add_millions());
 
   printf("[308] 支持原子交换操作\n");
   ASSERT(3, ({ int x=3; atomic_exchange(&x, 5); }));
