@@ -58,10 +58,26 @@ test-stage2: $(TESTS:test/%=stage2/test/%)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
 	test/driver.sh ./stage2/rvcc
 
+# 测试第三方程序
+test-libpng: rvcc
+	./test/thirdparty/libpng.sh
+
+test-sqlite: rvcc
+	./test/thirdparty/sqlite.sh
+
+test-tinycc: rvcc
+	./test/thirdparty/tinycc.sh
+
+test-lua: rvcc
+	./test/thirdparty/lua.sh
+
+test-git: rvcc
+	./test/thirdparty/git.sh
+
 
 # 清理标签，清理所有非源代码文件
 clean:
-	rm -rf rvcc tmp* $(TESTS) test/*.s test/*.exe stage2/
+	rm -rf rvcc tmp* $(TESTS) test/*.s test/*.exe stage2/ thirdparty/
 	find * -type f '(' -name '*~' -o -name '*.o' -o -name '*.s' ')' -exec rm {} ';'
 
 # 伪目标，没有实际的依赖文件
