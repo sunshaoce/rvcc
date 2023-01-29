@@ -3745,16 +3745,32 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
   if (!Ty->Name)
     errorTok(Ty->NamePos, "function name omitted");
 
-  Obj *Fn = newGVar(getIdent(Ty->Name), Ty);
-  Fn->IsFunction = true;
-  Fn->IsDefinition = !consume(&Tok, Tok, ";");
-  Fn->IsStatic = Attr->IsStatic || (Attr->IsInline && !Attr->IsExtern);
-  Fn->IsInline = Attr->IsInline;
+  // 函数名称
+  char *NameStr = getIdent(Ty->Name);
+
+  Obj *Fn = findFunc(NameStr);
+  if (Fn) {
+    // 重复定义的函数
+    if (!Fn->IsFunction)
+      errorTok(Tok, "redeclared as a different kind of symbol");
+    if (Fn->IsDefinition && equal(Tok, "{"))
+      errorTok(Tok, "redefinition of %s", NameStr);
+    if (!Fn->IsStatic && Attr->IsStatic)
+      errorTok(Tok, "static declaration follows a non-static declaration");
+    Fn->IsDefinition = Fn->IsDefinition || equal(Tok, "{");
+  } else {
+    Fn = newGVar(NameStr, Ty);
+    Fn->IsFunction = true;
+    Fn->IsDefinition = equal(Tok, "{");
+    Fn->IsStatic = Attr->IsStatic || (Attr->IsInline && !Attr->IsExtern);
+    Fn->IsInline = Attr->IsInline;
+  }
+
   // 非static inline函数标记为根函数
   Fn->IsRoot = !(Fn->IsStatic && Fn->IsInline);
 
   // 判断是否没有函数定义
-  if (!Fn->IsDefinition)
+  if (consume(&Tok, Tok, ";"))
     return Tok;
 
   CurrentFn = Fn;
