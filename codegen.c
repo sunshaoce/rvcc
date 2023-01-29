@@ -209,6 +209,14 @@ static void genAddr(Node *Nd) {
       return;
     }
     break;
+  case ND_ASSIGN:
+  case ND_COND:
+    // 使结构体成员可以通过=或?:访问
+    if (Nd->Ty->Kind == TY_STRUCT || Nd->Ty->Kind == TY_UNION) {
+      genExpr(Nd);
+      return;
+    }
+    break;
   case ND_VLA_PTR:
     // VLA的指针
     printLn("  # 生成VLA的指针");
