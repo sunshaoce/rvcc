@@ -161,7 +161,8 @@ static Obj *BuiltinAlloca;
 // structDecl = structUnionDecl
 // unionDecl = structUnionDecl
 // structUnionDecl = attribute? ident? ("{" structMembers)?
-// attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
+// attribute = ("__attribute__" "(" "(" ("packed")
+//                                    | ("aligned" "(" N ")") ")" ")")*
 // postfix = "(" typeName ")" "{" initializerList "}"
 //         = ident "(" funcArgs ")" postfixTail*
 //         | primary postfixTail*
@@ -3114,19 +3115,41 @@ static void structMembers(Token **Rest, Token *Tok, Type *Ty) {
   Ty->Mems = Head.Next;
 }
 
-// attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
-static Token *attribute(Token *Tok, Type *Ty) {
+// attribute = ("__attribute__" "(" "(" ("packed")
+//                                    | ("aligned" "(" N ")") ")" ")")*
+static Token *attributeList(Token *Tok, Type *Ty) {
   // 解析__attribute__相关的属性
-  if (!equal(Tok, "__attribute__"))
-    return Tok;
+  while (consume(&Tok, Tok, "__attribute__")) {
+    Tok = skip(Tok, "(");
+    Tok = skip(Tok, "(");
 
-  Tok = Tok->Next;
-  Tok = skip(Tok, "(");
-  Tok = skip(Tok, "(");
-  Tok = skip(Tok, "packed");
-  Tok = skip(Tok, ")");
-  Tok = skip(Tok, ")");
-  Ty->IsPacked = true;
+    bool First = true;
+
+    while (!consume(&Tok, Tok, ")")) {
+      if (!First)
+        Tok = skip(Tok, ",");
+      First = false;
+
+      // "packed"
+      if (consume(&Tok, Tok, "packed")) {
+        Ty->IsPacked = true;
+        continue;
+      }
+
+      // "aligned" "(" N ")"
+      if (consume(&Tok, Tok, "aligned")) {
+        Tok = skip(Tok, "(");
+        Ty->Align = constExpr(&Tok, Tok);
+        Tok = skip(Tok, ")");
+        continue;
+      }
+
+      errorTok(Tok, "unknown attribute");
+    }
+
+    Tok = skip(Tok, ")");
+  }
+
   return Tok;
 }
 
@@ -3135,7 +3158,7 @@ static Type *structUnionDecl(Token **Rest, Token *Tok) {
   // 构造结构体类型
   Type *Ty = structType();
   // 设置相关属性
-  Tok = attribute(Tok, Ty);
+  Tok = attributeList(Tok, Ty);
 
   // 读取标签
   Token *Tag = NULL;
@@ -3162,7 +3185,7 @@ static Type *structUnionDecl(Token **Rest, Token *Tok) {
 
   // 构造一个结构体
   structMembers(&Tok, Tok, Ty);
-  *Rest = attribute(Tok, Ty);
+  *Rest = attributeList(Tok, Ty);
 
   // 如果是重复定义，就覆盖之前的定义。否则有名称就注册结构体类型
   if (Tag) {
