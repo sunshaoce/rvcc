@@ -7,6 +7,8 @@ static char *RVPath = "";
 
 // -S选项
 static bool OptS;
+// -c选项
+static bool OptC;
 // cc1选项
 static bool OptCC1;
 // ###选项
@@ -81,6 +83,12 @@ static void parseArgs(int Argc, char **Argv) {
       continue;
     }
 
+    // 解析-c
+    if (!strcmp(Argv[I], "-c")) {
+      OptC = true;
+      continue;
+    }
+
     // 解析-cc1-input
     if (!strcmp(Argv[I], "-cc1-input")) {
       BaseFile = Argv[++I];
@@ -116,6 +124,14 @@ static FILE *openFile(char *Path) {
   if (!Out)
     error("cannot open output file: %s: %s", Path, strerror(errno));
   return Out;
+}
+
+// 判断字符串P是否以字符串Q结尾
+static bool endsWith(char *P, char *Q) {
+  int len1 = strlen(P);
+  int len2 = strlen(Q);
+  // P比Q长且P最后Len2长度的字符和Q相等，则为真
+  return (len1 >= len2) && !strcmp(P + len1 - len2, Q);
 }
 
 // 替换文件的后缀名
@@ -240,6 +256,135 @@ static void assemble(char *Input, char *Output) {
   runSubprocess(Cmd);
 }
 
+// 查找文件
+static char *findFile(char *Pattern) {
+  char *Path = NULL;
+  // Linux文件系统中路径名称的模式匹配
+  glob_t Buf = {};
+  // 参数：用来模式匹配的路径，标记（例如是否排序结果），错误处理函数，结果存放缓冲区
+  glob(Pattern, 0, NULL, &Buf);
+  // gl_pathc匹配到的路径计数
+  // 复制最后的一条匹配结果到Path中
+  if (Buf.gl_pathc > 0)
+    Path = strdup(Buf.gl_pathv[Buf.gl_pathc - 1]);
+  // 释放内存
+  globfree(&Buf);
+  return Path;
+}
+
+// 文件存在时，为真
+static bool fileExists(char *Path) {
+  struct stat St;
+  return !stat(Path, &St);
+}
+
+// 查找库路径
+static char *findLibPath(void) {
+  if (fileExists("/usr/lib/riscv64-linux-gnu/crti.o"))
+    return "/usr/lib/riscv64-linux-gnu";
+  if (fileExists("/usr/lib64/crti.o"))
+    return "/usr/lib64";
+
+  if (fileExists(format("%s/sysroot/usr/lib/crti.o", RVPath)))
+    return format("%s/sysroot/usr/lib/", RVPath);
+  error("library path is not found");
+  return NULL;
+}
+
+// 查找gcc库路径
+static char *findGCCLibPath(void) {
+  char *paths[] = {
+      "/usr/lib/gcc/riscv64-linux-gnu/*/crtbegin.o",
+      // Gentoo
+      "/usr/lib/gcc/riscv64-pc-linux-gnu/*/crtbegin.o",
+      // Fedora
+      "/usr/lib/gcc/riscv64-redhat-linux/*/crtbegin.o",
+      // 交叉编译
+      format("%s/lib/gcc/riscv64-unknown-linux-gnu/*/crtbegin.o", RVPath),
+  };
+
+  // 遍历以查找gcc库的路径
+  for (int I = 0; I < sizeof(paths) / sizeof(*paths); I++) {
+    char *path = findFile(paths[I]);
+    if (path)
+      return dirname(path);
+  }
+
+  error("gcc library path is not found");
+  return NULL;
+}
+
+// 运行链接器ld
+static void runLinker(StringArray *Inputs, char *Output) {
+  // 需要传递ld子进程的参数
+  StringArray Arr = {};
+
+  // 链接器
+  char *Ld = strlen(RVPath)
+                 ? format("%s/bin/riscv64-unknown-linux-gnu-ld", RVPath)
+                 : "ld";
+  strArrayPush(&Arr, Ld);
+
+  // 输出文件
+  strArrayPush(&Arr, "-o");
+  strArrayPush(&Arr, Output);
+  strArrayPush(&Arr, "-m");
+  strArrayPush(&Arr, "elf64lriscv");
+  strArrayPush(&Arr, "-dynamic-linker");
+
+  char *LP64D =
+      strlen(RVPath)
+          ? format("%s/sysroot/lib/ld-linux-riscv64-lp64d.so.1", RVPath)
+          : "/lib/ld-linux-riscv64-lp64d.so.1";
+  strArrayPush(&Arr, LP64D);
+
+  char *LibPath = findLibPath();
+  char *GccLibPath = findGCCLibPath();
+
+  strArrayPush(&Arr, format("%s/crt1.o", LibPath));
+  strArrayPush(&Arr, format("%s/crti.o", LibPath));
+  strArrayPush(&Arr, format("%s/crtbegin.o", GccLibPath));
+  strArrayPush(&Arr, format("-L%s", GccLibPath));
+  strArrayPush(&Arr, format("-L%s", LibPath));
+  strArrayPush(&Arr, format("-L%s/..", LibPath));
+  if (strlen(RVPath)) {
+    strArrayPush(&Arr, format("-L%s/sysroot/usr/lib64", RVPath));
+    strArrayPush(&Arr, format("-L%s/sysroot/lib64", RVPath));
+    strArrayPush(&Arr,
+                 format("-L%s/sysroot/usr/lib/riscv64-linux-gnu", RVPath));
+    strArrayPush(&Arr,
+                 format("-L%s/sysroot/usr/lib/riscv64-pc-linux-gnu", RVPath));
+    strArrayPush(&Arr,
+                 format("-L%s/sysroot/usr/lib/riscv64-redhat-linux", RVPath));
+    strArrayPush(&Arr, format("-L%s/sysroot/usr/lib", RVPath));
+    strArrayPush(&Arr, format("-L%s/sysroot/lib", RVPath));
+  } else {
+    strArrayPush(&Arr, "-L/usr/lib64");
+    strArrayPush(&Arr, "-L/lib64");
+    strArrayPush(&Arr, "-L/usr/lib/riscv64-linux-gnu");
+    strArrayPush(&Arr, "-L/usr/lib/riscv64-pc-linux-gnu");
+    strArrayPush(&Arr, "-L/usr/lib/riscv64-redhat-linux");
+    strArrayPush(&Arr, "-L/usr/lib");
+    strArrayPush(&Arr, "-L/lib");
+  }
+
+  // 输入文件，存入到链接器参数中
+  for (int I = 0; I < Inputs->Len; I++)
+    strArrayPush(&Arr, Inputs->Data[I]);
+
+  strArrayPush(&Arr, "-lc");
+  strArrayPush(&Arr, "-lgcc");
+  strArrayPush(&Arr, "--as-needed");
+  strArrayPush(&Arr, "-lgcc_s");
+  strArrayPush(&Arr, "--no-as-needed");
+  strArrayPush(&Arr, format("%s/crtend.o", GccLibPath));
+  strArrayPush(&Arr, format("%s/crtn.o", LibPath));
+  strArrayPush(&Arr, NULL);
+
+  // 开辟的链接器子进程
+  runSubprocess(Arr.Data);
+}
+
 // 编译器驱动流程
 //
 // 源文件
@@ -266,9 +411,12 @@ int main(int Argc, char **Argv) {
     return 0;
   }
 
-  // 当前不能将多个输入文件，输出到一个文件中
-  if (InputPaths.Len > 1 && OptO)
-    error("cannot specify '-o' with multiple files");
+  // 当前不能指定-c、-S后，将多个输入文件，输出到一个文件中
+  if (InputPaths.Len > 1 && OptO && (OptC || OptS))
+    error("cannot specify '-o' with '-c' or '-S' with multiple files");
+
+  // 链接器参数
+  StringArray LdArgs = {};
 
   // 遍历每个输入文件
   for (int I = 0; I < InputPaths.Len; I++) {
@@ -287,20 +435,60 @@ int main(int Argc, char **Argv) {
     else
       Output = replaceExtn(Input, ".o");
 
+    // 处理.o文件
+    if (endsWith(Input, ".o")) {
+      // 存入链接器选项中
+      strArrayPush(&LdArgs, Input);
+      continue;
+    }
+
+    // 处理.s文件
+    if (endsWith(Input, ".s")) {
+      // 如果没有指定-S，那么需要进行汇编
+      if (!OptS)
+        assemble(Input, Output);
+      continue;
+    }
+
+    // 处理.c文件
+    if (!endsWith(Input, ".c") && strcmp(Input, "-"))
+      error("unknown file extension: %s", Input);
+
     // 如果有-S选项，那么执行调用cc1程序
     if (OptS) {
       runCC1(Argc, Argv, Input, Output);
       continue;
     }
 
+    // 编译并汇编
+    if (OptC) {
+      // 临时文件Tmp作为cc1输出的汇编文件
+      char *Tmp = createTmpFile();
+      // cc1，编译C文件为汇编文件
+      runCC1(Argc, Argv, Input, Tmp);
+      // as，编译汇编文件为可重定位文件
+      assemble(Tmp, Output);
+      continue;
+    }
+
     // 否则运行cc1和as
-    // 临时文件TmpFile作为cc1输出的汇编文件
-    char *TmpFile = createTmpFile();
+    // 临时文件Tmp1作为cc1输出的汇编文件
+    // 临时文件Tmp2作为as输出的可重定位文件
+    char *Tmp1 = createTmpFile();
+    char *Tmp2 = createTmpFile();
     // cc1，编译C文件为汇编文件
-    runCC1(Argc, Argv, Input, TmpFile);
+    runCC1(Argc, Argv, Input, Tmp1);
     // as，编译汇编文件为可重定位文件
-    assemble(TmpFile, Output);
+    assemble(Tmp1, Tmp2);
+    // 将Tmp2存入链接器选项
+    strArrayPush(&LdArgs, Tmp2);
+    continue;
   }
+
+  // 需要链接的情况
+  // 未指定文件名时，默认为a.out
+  if (LdArgs.Len > 0)
+    runLinker(&LdArgs, OptO ? OptO : "a.out");
 
   return 0;
 }
