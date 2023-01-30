@@ -24,10 +24,10 @@ $(OBJS): rvcc.h
 
 # 测试标签，运行测试
 test/%.exe: rvcc test/%.c
-	$(CC) -o- -E -P -C test/$*.c | ./rvcc -o test/$*.s -
-#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -o- -E -P -C test/$*.c | ./rvcc -o test/$*.s -
-	$(CC) -o $@ test/$*.s -xc test/common
-#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.s -xc test/common
+	$(CC) -o- -E -P -C test/$*.c | ./rvcc -o test/$*.o -
+#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -o- -E -P -C test/$*.c | ./rvcc -o test/$*.o -
+	$(CC) -o $@ test/$*.o -xc test/common
+#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.o -xc test/common
 
 test: $(TESTS)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
@@ -44,21 +44,17 @@ test-all: test test-stage2
 stage2/rvcc: $(OBJS:%=stage2/%)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# 利用stage1的rvcc去将rvcc的源代码编译为stage2的汇编文件
-stage2/%.s: rvcc self.py %.c
+# 利用stage1的rvcc去将rvcc的源代码编译为stage2的可重定位文件
+stage2/%.o: rvcc self.py %.c
 	mkdir -p stage2/test
 	./self.py rvcc.h $*.c > stage2/$*.c
-	./rvcc -o stage2/$*.s stage2/$*.c
-
-# stage2的汇编编译为可重定位文件
-stage2/%.o: stage2/%.s
-	$(CC) -c stage2/$*.s -o stage2/$*.o
+	./rvcc -o stage2/$*.o stage2/$*.c
 
 # 利用stage2的rvcc去进行测试
 stage2/test/%.exe: stage2/rvcc test/%.c
 	mkdir -p stage2/test
-	$(CC) -o- -E -P -C test/$*.c | ./stage2/rvcc -o stage2/test/$*.s -
-	$(CC) -o $@ stage2/test/$*.s -xc test/common
+	$(CC) -o- -E -P -C test/$*.c | ./stage2/rvcc -o stage2/test/$*.o -
+	$(CC) -o $@ stage2/test/$*.o -xc test/common
 
 test-stage2: $(TESTS:test/%=stage2/test/%)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
