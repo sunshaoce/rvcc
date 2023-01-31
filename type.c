@@ -342,6 +342,18 @@ void addType(Node *Nd) {
   case ND_LABEL_VAL:
     Nd->Ty = pointerTo(TyVoid);
     return;
+  // 节点类型为 布尔类型
+  case ND_CAS:
+    addType(Nd->CasAddr);
+    addType(Nd->CasOld);
+    addType(Nd->CasNew);
+    Nd->Ty = TyBool;
+
+    if (Nd->CasAddr->Ty->Kind != TY_PTR)
+      errorTok(Nd->CasAddr->Tok, "pointer expected");
+    if (Nd->CasOld->Ty->Kind != TY_PTR)
+      errorTok(Nd->CasOld->Tok, "pointer expected");
+    return;
   default:
     break;
   }

@@ -1596,6 +1596,50 @@ static void genExpr(Node *Nd) {
     printLn("  # 加载标签%s的值到a0中", Nd->UniqueLabel);
     printLn("  la a0, %s", Nd->UniqueLabel);
     return;
+  case ND_CAS: {
+    printLn("# =====原子比较交换===============");
+    // 当 t1地址中的值t0 与 t3旧值 相同时，将 t1地址中的值 替换为 t4新值
+    // 若不同时，将 地址中的值t0 替换掉 旧值
+    genExpr(Nd->CasAddr);
+    printLn("  mv t1, a0"); // t1地址
+    genExpr(Nd->CasOld);
+    printLn("  mv t2, a0"); // t2旧值地址
+    load(Nd->CasOld->Ty->Base);
+    printLn("  mv t3, a0"); // t3旧值
+    genExpr(Nd->CasNew);
+    printLn("  mv t4, a0"); // t4新值
+
+    // fence用于控制设备、内存的读写顺序
+    // iorw：之前的设备输入输出、内存读写指令，不能晚于fence指令
+    // ow：之后的设备输出、内存写的指令，不能早于fence指令
+    printLn("  fence iorw, ow");
+    printLn("1:");
+    // 加载地址中的值到t0
+    // lr（Load-Reserved）：加载并保留对该内存地址的控制权
+    // aq（acquisition）：若设置了aq位，
+    // 则此硬件线程中在AMO（原子内存操作）之后的任何内存操作，都不会在AMO之前发生
+    printLn("  lr.w.aq t0, (t1)");
+    // 地址的值和旧值比较，若不等则退出
+    printLn("  bne t0, t3, 2f");
+    // 写入新值到地址
+    // sc（Store-Conditional）：将寄存器中的值写入指定内存地址。
+    // 写入操作只有在该内存地址仍然被处理器保留时才会生效。
+    printLn("  sc.w.aq a0, t4, (t1)");
+    // 不为0时，写入失败，重新写入
+    printLn("  bnez a0, 1b");
+
+    printLn("2:");
+    // t0地址中的值 减去 t3旧值，将 差值 存入 t3
+    printLn("  subw t3, t0, t3");
+    // 判断差值t3，t3为0时 返回值a0为1，t3不为0时 返回值a0为0
+    printLn("  seqz a0, t3");
+    // 判断差值t3，t3为0时跳转到最后
+    printLn("  beqz t3, 3f");
+    // 若不同时，将 地址中的值t0 写入 t2旧值的地址，替换掉 旧值
+    printLn("  sw t0, (t2)");
+    printLn("3:");
+    return;
+  }
   default:
     break;
   }

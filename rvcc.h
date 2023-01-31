@@ -248,6 +248,7 @@ typedef enum {
   ND_CAST,      // 类型转换
   ND_MEMZERO,   // 栈中变量清零
   ND_ASM,       // "asm"汇编
+  ND_CAS,       // 原子比较交换
 } NodeKind;
 
 // AST中二叉树节点
@@ -299,6 +300,11 @@ struct Node {
 
   // "asm" 字符串字面量
   char *AsmStr;
+
+  // 原子比较交换
+  Node *CasAddr; // 地址
+  Node *CasOld;  // 旧值
+  Node *CasNew;  // 新值
 
   Obj *Var;         // 存储ND_VAR种类的变量
   int64_t Val;      // 存储ND_NUM种类的值
