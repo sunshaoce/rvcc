@@ -2663,10 +2663,9 @@ static Node *funCall(Token **Rest, Token *Tok, Node *Fn) {
     addType(Arg);
 
     if (ParamTy) {
-      if (ParamTy->Kind == TY_STRUCT || ParamTy->Kind == TY_UNION)
-        errorTok(Arg->Tok, "passing struct or union is not supported yet");
-      // 将参数节点的类型进行转换
-      Arg = newCast(Arg, ParamTy);
+      if (ParamTy->Kind != TY_STRUCT && ParamTy->Kind != TY_UNION)
+        // 将参数节点的类型进行转换
+        Arg = newCast(Arg, ParamTy);
       // 前进到下一个形参类型
       ParamTy = ParamTy->Next;
     } else if (Arg->Ty->Kind == TY_FLOAT) {

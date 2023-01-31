@@ -84,3 +84,108 @@ double add10_int_double(int a0, int a1, int a2, int a3, int a4, int a5, int a6,
                         double fa6, double fa7, double fs3, double fs4) {
   return s2 + fs4;
 }
+// [200] 支持结构体实参
+// 单个成员变量的结构体
+typedef struct {_Bool a;} StTy1_1;
+typedef struct {short a;} StTy1_2;
+typedef struct {unsigned a;} StTy1_3;
+typedef struct {long a;} StTy1_4;
+
+int struct_type_1_1_test(StTy1_1 x) { return x.a; }
+int struct_type_1_2_test(StTy1_2 x) { return x.a; }
+int struct_type_1_3_test(StTy1_3 x) { return x.a; }
+int struct_type_1_4_test(StTy1_4 x) { return x.a; }
+
+// 使用一个寄存器的结构体
+typedef struct {char a;char b;char c;char d;char e;char f;char g;char h;} StTy2_1;
+typedef struct {int a;int b;} StTy2_2;
+typedef struct {unsigned a;unsigned b;} StTy2_3;
+
+int struct_type_2_1_test(StTy2_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;case 5:return x.f;case 6: return x.g;case 7: return x.h; default: return -1; }}
+int struct_type_2_2_test(StTy2_2 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+int struct_type_2_3_test(StTy2_3 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+
+typedef struct {char a;char b;char c;char d;int e;} StTy3_1;
+typedef struct {char a;char b;char c;int d;} StTy3_2;
+typedef struct {char a;short b;char c;short d;} StTy3_3;
+
+int struct_type_3_1_test(StTy3_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;default: return -1; }}
+int struct_type_3_2_test(StTy3_2 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;default: return -1; }}
+int struct_type_3_3_test(StTy3_3 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;default: return -1; }}
+
+// 使用两个寄存器的结构体
+typedef struct {char a;char b;char c;char d;int e;char f;int g;} StTy4_1;
+typedef struct {char a;char b;char c;int d;char e;} StTy4_2;
+typedef struct {char a;short b;char c;short d;char e;short f;} StTy4_3;
+typedef struct {char a;short b;char c;short d;int e;short f;char g;} StTy4_4;
+
+int struct_type_4_1_test(StTy4_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;case 5: return x.f;case 6: return x.g;default: return -1; }}
+int struct_type_4_2_test(StTy4_2 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;default: return -1; }}
+int struct_type_4_3_test(StTy4_3 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;case 5: return x.f;default: return -1; }}
+int struct_type_4_4_test(StTy4_4 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;case 5: return x.f;case 6: return x.g;default: return -1; }}
+
+// 使用地址传递的结构体
+typedef struct {long a;long b;long c;} StTy5_1;
+typedef struct {long a;long b;long c;long d;long e;long f;long g;long h;} StTy5_2;
+
+int struct_type_5_1_test(StTy5_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;default: return -1; }}
+int struct_type_5_2_test(StTy5_2 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return x.d;case 4: return x.e;case 5:return x.f;case 6: return x.g;case 7: return x.h; default: return -1; }}
+int struct_type_5_3_test(StTy5_1 x, StTy5_1 y, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return y.a; case 4: return y.b; case 5: return y.c; default: return -1; }}
+int struct_type_5_4_test(int aa, StTy5_1 x, int bb, StTy5_1 y, int n) {int cc = 123; switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;case 3: return y.a; case 4: return y.b; case 5: return y.c; default: return -1; int dd=456; }}
+
+// 掺杂浮点的结构体（成员数>=3）
+typedef struct {char a;float b;char c;} StTy6_1;
+
+int struct_type_6_1_test(StTy6_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; case 2: return x.c;default: return -1; }}
+
+// 掺杂浮点的结构体（成员数==1）
+typedef struct {float a;} StTy7_1;
+typedef struct {double a;} StTy7_2;
+
+int struct_type_7_1_test(StTy7_1 x) { return x.a; }
+int struct_type_7_2_test(StTy7_2 x) { return x.a; }
+
+// 掺杂浮点的结构体（成员数==2）
+typedef struct {float a;char b;} StTy8_1;
+typedef struct {int a;double b;} StTy8_2;
+typedef struct {float a;float b;} StTy8_3;
+typedef struct {int a;float b;} StTy8_4;
+
+int struct_type_8_1_test(StTy8_1 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+int struct_type_8_2_test(StTy8_2 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+int struct_type_8_3_test(StTy8_3 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+int struct_type_8_4_test(StTy8_4 x, int n) {switch(n){case 0: return x.a; case 1: return x.b; default: return -1; }}
+
+// 栈传递两个寄存器的结构体（整体）
+typedef struct {long a;char b;} StTy9_1;
+int struct_type_9_1_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, StTy9_1 x, int n) {switch (n) {case 0:return x.a;case 1:return x.b;default:return -1;}}
+
+// 栈传递两个寄存器的结构体（一半）
+int struct_type_10_1_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, StTy9_1 x, int n) { switch (n) { case 0: return x.a; case 1: return x.b; default: return -1; } }
+// 栈传递两个寄存器的结构体（整体，含浮点）
+int struct_type_11_1_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, StTy8_4 x, int n) { switch (n) { case 0: return x.a; case 1: return x.b; default: return -1; } }
+int struct_type_11_2_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, StTy8_2 x, int n) { switch (n) { case 0: return x.a; case 1: return x.b; default: return -1; } }
+int struct_type_11_3_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, StTy8_1 x, int n) { switch (n) { case 0: return x.a; case 1: return x.b; default: return -1; } }
+// 栈传递两个寄存器的结构体（一半，含浮点）
+int struct_type_12_1_test(int a0, int a1, int a2, int a3, int a4, int a5, int a6, StTy8_4 x, int n) { switch (n) { case 0: return x.a; case 1: return x.b; default: return -1; } }
+
+// 结构体包含浮点数组
+typedef struct {float a[2];} StTy13_1;
+int struct_type_13_1_test(StTy13_1 x, int n) {return x.a[n];}
+
+// 联合体
+typedef union {float a; int b;} UnTy1_1;
+typedef union {float a; int b; long c;} UnTy1_2;
+int union_type_1_1_test(UnTy1_1 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; default: return -1;}}
+int union_type_1_2_test(UnTy1_2 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; case 2: return x.c; default: return -1;}}
+
+// [200] 支持结构体实参
+typedef struct { int a,b; short c; char d; } Ty4;
+typedef struct { int a; float b; double c; } Ty5;
+typedef struct { unsigned char a[3]; } Ty6;
+typedef struct { long a, b, c; } Ty7;
+
+int struct_test4(Ty4 x, int n) {switch (n) {case 0: return x.a;case 1: return x.b;case 2: return x.c;default: return x.d;}}
+int struct_test5(Ty5 x, int n) {switch (n) {case 0: return x.a;case 1: return x.b;default: return x.c;}}
+int struct_test6(Ty6 x, int n) {return x.a[n];}
+int struct_test7(Ty7 x, int n) {switch (n) {case 0: return x.a;case 1: return x.b;default: return x.c;}}
