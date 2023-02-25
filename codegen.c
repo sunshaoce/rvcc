@@ -5,7 +5,7 @@ static int Depth;
 // 用于函数参数的寄存器们
 static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5"};
 // 当前的函数
-static Function *CurrentFn;
+static Obj *CurrentFn;
 
 static void genExpr(Node *Nd);
 
@@ -301,9 +301,13 @@ static void genStmt(Node *Nd) {
 }
 
 // 根据变量的链表计算出偏移量
-static void assignLVarOffsets(Function *Prog) {
+static void assignLVarOffsets(Obj *Prog) {
   // 为每个函数计算其变量所用的栈空间
-  for (Function *Fn = Prog; Fn; Fn = Fn->Next) {
+  for (Obj *Fn = Prog; Fn; Fn = Fn->Next) {
+    // 如果不是函数,则终止
+    if (!Fn->IsFunction)
+      continue;
+
     int Offset = 0;
     // 读取所有变量
     for (Obj *Var = Fn->Locals; Var; Var = Var->Next) {
@@ -318,13 +322,18 @@ static void assignLVarOffsets(Function *Prog) {
 }
 
 // 代码生成入口函数，包含代码块的基础信息
-void codegen(Function *Prog) {
+void codegen(Obj *Prog) {
   assignLVarOffsets(Prog);
 
   // 为每个函数单独生成代码
-  for (Function *Fn = Prog; Fn; Fn = Fn->Next) {
+  for (Obj *Fn = Prog; Fn; Fn = Fn->Next) {
+    if (!Fn->IsFunction)
+      continue;
+
     printf("\n  # 定义全局%s段\n", Fn->Name);
     printf("  .globl %s\n", Fn->Name);
+
+    printf("  .text\n");
     printf("# =====%s段开始===============\n", Fn->Name);
     printf("# %s段标签\n", Fn->Name);
     printf("%s:\n", Fn->Name);
