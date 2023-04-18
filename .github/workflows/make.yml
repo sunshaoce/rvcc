@@ -1,0 +1,24 @@
+name: Make Build RVCC
+
+on:
+  # 推送时进行测试main分支
+  push:
+    branches: [ "*" ]
+  # 发起PR时进行测试main分支
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  build:
+    # 选择构建RVCC基于的操作系统
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    # 执行checkout操作
+    - uses: actions/checkout@v3
+    # 执行构建
+    - name: make
+      run: make

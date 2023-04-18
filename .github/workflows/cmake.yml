@@ -1,0 +1,38 @@
+name: CMake Build RVCC
+
+on:
+  # 推送时进行测试main分支
+  push:
+    branches: [ "*" ]
+  # 发起PR时进行测试main分支
+  pull_request:
+    branches: [ "*" ]
+
+env:
+  # 自定义构建的程序类型
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    # 选择构建RVCC基于的操作系统
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    # 执行checkout操作
+    - uses: actions/checkout@v3
+
+    - name: Configure CMake
+      # 执行cmake命令进行构建，-B指定构建的目录，CMAKE_BUILD_TYPE指定构建的程序类型
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      # 执行构建
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      # 对生成的程序进行测试
+      run: ctest -C ${{env.BUILD_TYPE}}
